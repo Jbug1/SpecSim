@@ -17,7 +17,7 @@ def _select_common_peaks(p, q):
     return p, q
 
 
-def unweighted_entropy_distance(p, q):
+def entropy_distance(p, q):
     r"""
     Unweighted entropy distance:
 

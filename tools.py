@@ -1,6 +1,7 @@
 import numpy as np
 import scipy
 
+
 def format_spec(string_spec):
 
     return np.array([list(map(float, i.split())) for i in string_spec.split(";")])
@@ -53,7 +54,6 @@ def clean_spectrum(
     If both ms2_da and ms2_ppm is given, ms2_da will be used.
     """
     # Check parameter
-    spectrum = check_spectrum(spectrum)
     if ms2_da is None and ms2_ppm is None:
         raise RuntimeError("MS2 tolerance need to be set!")
 
@@ -76,10 +76,7 @@ def clean_spectrum(
 
 
 def centroid_spec(spec, ms2_ppm=None, ms2_da=None):
-    try:
-        return tools_fast.centroid_spec(spec, ms2_ppm, ms2_da)
-    except Exception as e:
-        pass
+
     """
     If both ms2_ppm and ms2_da is defined, ms2_da will be used.
     """
@@ -150,10 +147,6 @@ def match_peaks_in_spectra(spec_a, spec_b, ms2_ppm=None, ms2_da=None):
     :return: list. Each element in the list is a list contain three elements:
                               m/z, intensity from spec 1; intensity from spec 2.
     """
-    try:
-        return tools_fast.match_spectrum(spec_a, spec_b, ms2_ppm=ms2_ppm, ms2_da=ms2_da)
-    except Exception as e:
-        pass
 
     a = 0
     b = 0
@@ -311,7 +304,7 @@ def weight_intensity(x, power=1):
     Jonah version of weight_intensity function
     """
 
-    if type(power)==str:
+    if type(power) == str:
         power = scipy.stats.entropy(x)
 
     x = np.power(x, power)

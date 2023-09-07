@@ -38,14 +38,13 @@ def clean_spectrum(
     noise_removal: float = 0.01,
     ms2_da: float = 0.05,
     ms2_ppm: float = None,
+    standardize=True,
 ) -> np.ndarray:
     """
     Clean the spectrum with the following procedures:
     1. Remove ions have m/z higher than a given m/z (defined as max_mz).
     2. Centroid peaks by merging peaks within a given m/z (defined as ms2_da or ms2_ppm).
     3. Remove ions have intensity lower than max intensity * fixed value (defined as noise_removal)
-
-
     :param spectrum: The input spectrum, need to be in 2-D list or 2-D numpy array
     :param max_mz: The ions with m/z higher than max_mz will be removed.
     :param noise_removal: The ions with intensity lower than max ion's intensity * noise_removal will be removed.
@@ -71,7 +70,8 @@ def clean_spectrum(
         spectrum = spectrum[spectrum[:, 1] >= max_intensity * noise_removal]
 
     # 4. Standardize the spectrum.
-    spectrum = standardize_spectrum(spectrum)
+    if standardize:
+        spectrum = standardize_spectrum(spectrum)
     return spectrum
 
 
@@ -141,6 +141,60 @@ def centroid_spec(spec, ms2_ppm=None, ms2_da=None):
         return spec
 
 
+def match_peaks_with_mz_info_in_spectra(spec_a, spec_b, ms2_ppm=None, ms2_da=None):
+    """
+    Match two spectra, find common peaks. If both ms2_ppm and ms2_da is defined, ms2_da will be used.
+    :return: list. Each element in the list is a list contain three elements:
+                              m/z from spec 1; intensity from spec 1; m/z from spec 2; intensity from spec 2.
+    """
+    a = 0
+    b = 0
+
+    spec_merged = []
+    peak_b_mz = 0.0
+    peak_b_int = 0.0
+
+    while a < spec_a.shape[0] and b < spec_b.shape[0]:
+        mass_delta_ppm = (spec_a[a, 0] - spec_b[b, 0]) / spec_a[a, 0] * 1e6
+        if ms2_da is not None:
+            ms2_ppm = ms2_da / spec_a[a, 0] * 1e6
+        if mass_delta_ppm < -ms2_ppm:
+            # Peak only existed in spec a.
+            spec_merged.append([spec_a[a, 0], spec_a[a, 1], peak_b_mz, peak_b_int])
+            peak_b_mz = 0.0
+            peak_b_int = 0.0
+            a += 1
+        elif mass_delta_ppm > ms2_ppm:
+            # Peak only existed in spec b.
+            spec_merged.append([0.0, 0.0, spec_b[b, 0], spec_b[b, 1]])
+            b += 1
+        else:
+            # Peak existed in both spec.
+            peak_b_mz = ((peak_b_mz * peak_b_int) + (spec_b[b, 0] * spec_b[b, 1])) / (
+                peak_b_int + spec_b[b, 1]
+            )
+            peak_b_int += spec_b[b, 1]
+            b += 1
+
+    if peak_b_int > 0.0:
+        spec_merged.append([spec_a[a, 0], spec_a[a, 1], peak_b_mz, peak_b_int])
+        peak_b_mz = 0.0
+        peak_b_int = 0.0
+        a += 1
+
+    if b < spec_b.shape[0]:
+        spec_merged += [[0.0, 0.0, x[0], x[1]] for x in spec_b[b:]]
+
+    if a < spec_a.shape[0]:
+        spec_merged += [[x[0], x[1], 0.0, 0.0] for x in spec_a[a:]]
+
+    if spec_merged:
+        spec_merged = np.array(spec_merged, dtype=np.float64)
+    else:
+        spec_merged = np.array([[0.0, 0.0, 0.0, 0.0]], dtype=np.float64)
+    return spec_merged
+
+
 def match_peaks_in_spectra(spec_a, spec_b, ms2_ppm=None, ms2_da=None):
     """
     Match two spectra, find common peaks. If both ms2_ppm and ms2_da is defined, ms2_da will be used.
@@ -156,7 +210,7 @@ def match_peaks_in_spectra(spec_a, spec_b, ms2_ppm=None, ms2_da=None):
 
     while a < spec_a.shape[0] and b < spec_b.shape[0]:
         if ms2_da is None:
-            ms2_da = ms2_ppm * spec_a[a, 0] * 1e6
+            ms2_da = ms2_ppm * spec_a[a, 0] / 1e6
         mass_delta = spec_a[a, 0] - spec_b[b, 0]
 
         if mass_delta < -ms2_da:
@@ -281,12 +335,11 @@ def _weight_intensity_by_entropy(
 
     if np.sum(x) > 0:
         entropy_x = scipy.stats.entropy(x)
-
-    if entropy_x < ENTROPY_CUTOFF:
-        weight = WEIGHT_START + weight_slope * entropy_x
-        x = np.power(x, weight)
-        x_sum = np.sum(x)
-        x = x / x_sum
+        if entropy_x < ENTROPY_CUTOFF:
+            weight = WEIGHT_START + weight_slope * entropy_x
+            x = np.power(x, weight)
+            x_sum = np.sum(x)
+            x = x / x_sum
 
     return x
 
@@ -305,7 +358,12 @@ def weight_intensity(x, power=1):
     """
 
     if type(power) == str:
-        power = scipy.stats.entropy(x)
+        power = scipy.stats.entropy(x[:, 1])
 
-    x = np.power(x, power)
-    return x / np.sum(x)
+    if power is None:
+        x[:, 1] = _weight_intensity_by_entropy(x[:, 1])
+        return x
+
+    x[:, 1] = np.power(x[:, 1], power)
+    x[:, 1] = x[:, 1] / np.sum(x[:, 1])
+    return x

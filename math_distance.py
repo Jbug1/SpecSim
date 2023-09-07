@@ -7,14 +7,53 @@ import sklearn.metrics as met
 
 
 def _select_common_peaks(p, q):
+    """
+    should we be renormalizing p?
+    """
     select = q > 0
     p = p[select]
     p_sum = np.sum(p)
     if p_sum > 0:
         p = p / p_sum
     q = q[select]
-    q = q / np.sum(q)
     return p, q
+
+
+def entropy_jonah_distance(p, q):
+    r"""
+    Unweighted entropy distance:
+
+    .. math:
+
+        -\frac{2\times S_{PQ}-S_P-S_Q} {ln(4)}, S_I=\sum_{i} {I_i ln(I_i)}
+    """
+    merged = p + q
+    entropy_increase = (
+        2 * scipy.stats.entropy(merged)
+        - scipy.stats.entropy(p)
+        - scipy.stats.entropy(q)
+    )
+
+    norm_distance = (
+        2 * scipy.stats.entropy(np.concatenate([p, q]))
+        - scipy.stats.entropy(p)
+        - scipy.stats.entropy(q)
+    )
+
+    return entropy_increase / norm_distance
+
+
+def lorentzian_jonah_distance(p, q):
+    r"""
+    Lorentzian distance:
+
+    .. math::
+
+        \sum{\ln(1+|P_i-Q_i|)}
+    """
+    return np.sum(np.log(1 + np.abs(p - q))) / np.sum(
+        np.log(1 + np.concatenate((p, q)))
+    )
 
 
 def entropy_distance(p, q):
@@ -32,6 +71,70 @@ def entropy_distance(p, q):
         - scipy.stats.entropy(q)
     )
     return entropy_increase
+
+
+def common_mass_distance(p, q):
+
+    # get indices of matched peaks and drop rest
+    match_inds = np.where(p * q > 0)[0]
+
+    # check that there is at least one match
+    if len(match_inds) == 0:
+        return 1
+
+    p = p[match_inds]
+    q = q[match_inds]
+    matched = (p + q) / 2
+
+    return 1 - sum(matched)
+
+
+def cross_entropy(p, q):
+
+    epsilon = 1e-10
+    q = q + epsilon
+    return -np.sum(p * np.log(q)) / 22.332
+
+
+def binary_cross_entropy(y_true, y_pred):
+
+    epsilon = 1e-10
+    y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
+    ce = -y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
+    return sum(ce) / 46.0517018
+
+
+def kl_distance(p, q):
+
+    if len(p) == 0:
+        return 1
+
+    # add jitter for numerical stability
+    p = p + 1e-10
+    q = q + 1e-10
+
+    lim_1 = np.zeros(len(p))
+    lim_2 = np.zeros(len(p))
+
+    lim_1[0] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
+    lim_1 = lim_1 + 1e-10
+    lim_2 = lim_2 + 1e-10
+
+    return np.sum(np.where(p != 0, p * np.log(p / q), 0))
+
+
+def cross_ent_distance(p, q):
+
+    return max(cross_entropy(p, q), cross_entropy(q, p))
+
+
+def binary_cross_ent_distance(p, q):
+
+    return max(binary_cross_entropy(p, q), binary_cross_entropy(q, p))
 
 
 def euclidean_distance(p, q):
@@ -76,6 +179,12 @@ def squared_euclidean_distance(p, q):
         \sum(P_{i}-Q_{i})^2
     """
     return np.sum(np.power(p - q, 2))
+
+
+def l2_distance(p, q):
+
+    matched = (p + q) / 2
+    return -1 * (2 * (matched @ matched) - (p @ p) - (q @ q))
 
 
 def fidelity_distance(p, q):
@@ -281,6 +390,28 @@ def penrose_shape_distance(p, q):
     return np.sqrt(np.sum(np.power((p - p_avg) - (q - q_avg), 2)))
 
 
+def divergence_distance(p, q):
+    r"""
+    Divergence distance:
+
+    .. math::
+
+        2\sum\frac{(P_i-Q_i)^2}{(P_i+Q_i)^2}
+    """
+    return 2 * np.sum((np.power(p - q, 2)) / np.power(p + q, 2))
+
+
+def avg_l_distance(p, q):
+    r"""
+    Avg (L1, L∞) distance:
+
+    .. math::
+
+        \frac{1}{2}(\sum|P_i-Q_i|+\underset{i}{\max}{|P_i-Q_i|})
+    """
+    return np.sum(np.abs(p - q)) + max(np.abs(p - q))
+
+
 def clark_distance(p, q):
     r"""
     Clark distance:
@@ -304,6 +435,19 @@ def hellinger_distance(p, q):
     p_avg = np.mean(p)
     q_avg = np.mean(q)
     return np.sqrt(2 * np.sum(np.power(np.sqrt(p / p_avg) - np.sqrt(q / q_avg), 2)))
+
+
+def perc_peaks_in_common_distance(p, q):
+    "max is 1"
+
+    matched_peaks = len(np.where(p * q > 0)[0])
+    peaks_p = len(np.where(p > 0)[0])
+    peaks_q = len(np.where(q > 0)[0])
+
+    if peaks_p == 0 or peaks_q == 0:
+        return 1
+
+    return 1 - min(matched_peaks / peaks_p, matched_peaks / peaks_q)
 
 
 def whittaker_index_of_association_distance(p, q):
@@ -394,6 +538,67 @@ def dot_product_distance(p, q):
     return 1 - np.sqrt(score)
 
 
+def sigmoid_distance(p, q):
+    """
+    flexible norm constant implemented
+    lim_1 and lim_2 will be passed thru kernel function to get max distance for this length
+    In the case that the length in common is 0, return 1 for distance
+    """
+
+    if len(p) == 0:
+        return 1
+
+    # create zero arrays for normalization constant
+    lim_1 = np.zeros(len(p))
+    lim_2 = np.zeros(len(p))
+
+    lim_1[0] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
+
+    return (1 - pk([p], [q], metric="sigmoid")[0][0]) / (
+        1 - pk([lim_1], [lim_2], metric="sigmoid")[0][0]
+    )
+
+
+def cosine_kernel_distance(p, q):
+    "max is always 1, no need for normalization constant"
+
+    return 1 - pk([p], [q], metric="cosine")[0][0]
+
+
+def laplacian_distance(p, q):
+    """
+    flexible norm constant implemented
+    lim_1 and lim_2 will be passed thru kernel function to get max distance for this length
+    In the case that the length in common is 0, return 1 for distance
+    """
+    if len(p) == 0:
+        return 1
+
+    # create zero arrays for normalization constant
+    lim_1 = np.zeros(len(p))
+    lim_2 = np.zeros(len(p))
+
+    lim_1[0] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
+
+    return (1 - pk([p], [q], metric="laplacian")[0][0]) / (
+        1 - pk([lim_1], [lim_2], metric="laplacian")[0][0]
+    )
+
+
+def cosine_kernel_distance(p, q):
+    "max is always 1, no need for normalization constant"
+
+    return 1 - pk([p], [q], metric="cosine")[0][0]
+
+
 def cosine_distance(p, q):
     r"""
     Cosine distance, it gives the same result as the dot product.
@@ -422,7 +627,7 @@ def rbf_distance(p, q):
     In the case that the length in common is 0, return 1 for distance
     """
 
-    if len(p) == 1:
+    if len(p) == 0:
         return 1
 
     # create zero arrays for normalization constant
@@ -430,7 +635,10 @@ def rbf_distance(p, q):
     lim_2 = np.zeros(len(p))
 
     lim_1[0] += 1
-    lim_2[1] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
 
     return (1 - pk([p], [q], metric="rbf")[0][0]) / (
         1 - pk([lim_1], [lim_2], metric="rbf")[0][0]
@@ -458,34 +666,32 @@ def linear_distance(p, q):
 def reverse_distance(p, q, metric):
 
     p, q = _select_common_peaks(p, q)
+
     if np.sum(p) == 0:
         return 1
     else:
-        return eval(f"{metric}_distance({p},{q})")
+        return eval(f"{metric}_distance(p,q)")
 
 
 def max_distance(p, q, metric):
 
     return max(
-        eval(f"reverse_distance({p},{q},{metric})"),
-        eval(f"reverse_distance({q},{p},{metric})"),
+        reverse_distance(p, q, metric),
+        reverse_distance(q, p, metric),
     )
 
 
 def min_distance(p, q, metric):
 
     return min(
-        eval(f"reverse_distance({p},{q},{metric})"),
-        eval(f"reverse_distance({q},{p},{metric})"),
+        reverse_distance(p, q, metric),
+        reverse_distance(q, p, metric),
     )
 
 
 def ave_distance(p, q, metric):
 
-    return (
-        eval(f"reverse_distance({p},{q},{metric})")
-        + eval(f"reverse_distance({q},{p},{metric})")
-    ) / 2
+    return (reverse_distance(p, q, metric) + reverse_distance(q, p, metric)) / 2
 
 
 def minkowski_distance(p_, q):
@@ -501,7 +707,10 @@ def minkowski_distance(p_, q):
     lim_2 = np.zeros(len(p_))
 
     lim_1[0] += 1
-    lim_2[1] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
 
     return dist.minkowski(p_, q, p=4) / dist.minkowski(lim_1, lim_2, p=4)
 
@@ -519,7 +728,10 @@ def correlation_distance(p, q):
     lim_2 = np.zeros(len(p))
 
     lim_1[0] += 1
-    lim_2[1] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
 
     return dist.correlation(p, q) / dist.correlation(lim_1, lim_2)
 
@@ -529,12 +741,18 @@ def jensenshannon_distance(p, q):
     max is 0.82
     """
 
+    if len(p) == 0:
+        return 1
+
     # create zero arrays for normalization constant
     lim_1 = np.zeros(len(p))
     lim_2 = np.zeros(len(p))
 
     lim_1[0] += 1
-    lim_2[1] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
 
     return dist.jensenshannon(p, q) / dist.jensenshannon(lim_1, lim_2)
 
@@ -544,17 +762,47 @@ def sqeuclidean_distance(p, q):
     max is 2
     """
 
+    if len(p) == 0:
+        return 1
+
     # create zero arrays for normalization constant
     lim_1 = np.zeros(len(p))
     lim_2 = np.zeros(len(p))
 
     lim_1[0] += 1
-    lim_2[1] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
 
-    return dist.sqeuclidean(p, q) / dist.sqeuclidian(lim_1, lim_2)
+    return dist.sqeuclidean(p, q) / dist.sqeuclidean(lim_1, lim_2)
+
+
+def braycurtis_distance(p, q):
+    """
+    max is 2
+    """
+
+    if len(p) == 0:
+        return 1
+
+    # create zero arrays for normalization constant
+    lim_1 = np.zeros(len(p))
+    lim_2 = np.zeros(len(p))
+
+    lim_1[0] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
+
+    return dist.braycurtis(p, q) / dist.braycurtis(lim_1, lim_2)
 
 
 def gini_distance(p, q):
+
+    if len(p) == 0:
+        return 1
 
     matched = (p + q) / 2
 
@@ -563,7 +811,10 @@ def gini_distance(p, q):
     lim_2 = np.zeros(len(p))
 
     lim_1[0] += 1
-    lim_2[1] += 1
+    try:
+        lim_2[1] += 1
+    except:
+        pass
 
     lim_matched = (lim_1 + lim_2) / 2
 

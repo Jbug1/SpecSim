@@ -35,13 +35,29 @@ def get_target_df(
     return target_df
 
 
-def add_gauss_noise_to_peaks(spec, std):
+def add_gauss_noise_to_peaks(spec, scale_ratio):
 
-    noises = np.random.normal(scale=std, size=len(spec))
+    noises = np.zeros(len(spec))
+    for i in range(len(spec)):
+        noises[i] = np.random.normal(scale=spec[i][1] * scale_ratio)
+
     spec[:, 1] = spec[:, 1] + noises
     spec[:, 1] = np.clip(spec[:, 1], a_min=0, a_max=None)
 
     return spec
+
+
+def add_noises_to_matches(matches, scale_ratio, mult):
+
+    matches["query"] = matches.apply(
+        lambda x: add_gauss_noise_to_peaks(x["query"], scale_ratio=scale_ratio), axis=1
+    )
+    matches["query"] = matches.apply(
+        lambda x: add_beta_noise_to_spectrum(x["query"], x["query_prec"], mult=mult),
+        axis=1,
+    )
+
+    return matches
 
 
 def get_target_df_with_noise(
@@ -73,7 +89,7 @@ def get_target_df_with_noise(
 
     if noise_peaks == True:
         target_df.apply(
-            lambda x: add_poisson_noise_to_spectrum(
+            lambda x: add_beta_noise_to_spectrum(
                 x["spectrum"], x["precursor"], num_peaks, lam
             ),
             axis=1,
@@ -595,20 +611,19 @@ def add_non_spec_features(query_row, target_row):
     return outrow
 
 
-def add_poisson_noise_to_spectrum(spec, precursor_mz, noise_peaks, lam):
+def add_beta_noise_to_spectrum(spec, precursor_mz, mult, noise_peaks=None):
 
     if noise_peaks is None:
         noise_peaks = len(spec)
 
     # generate noise mzs and intensities to be added
     noise_spec = np.zeros((noise_peaks, 2))
-    noise_spec[:, 1] = np.random.poisson(lam=lam, size=noise_peaks)
+    noise_spec[:, 1] = np.random.beta(a=1, b=5, size=noise_peaks) * mult
     noise_spec[:, 0] = np.random.uniform(0, precursor_mz, size=noise_peaks)
 
     # build the final spectrum with mzs and combined peaks
     spec = np.concatenate((spec, noise_spec))
     spec = spec[spec[:, 0].argsort()]
-
     return spec
 
 

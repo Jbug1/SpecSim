@@ -640,9 +640,15 @@ def rbf_distance(p, q):
     except:
         pass
 
-    return (1 - pk([p], [q], metric="rbf")[0][0]) / (
-        1 - pk([lim_1], [lim_2], metric="rbf")[0][0]
-    )
+    try:
+        return (1 - pk([p], [q], metric="rbf")[0][0]) / (
+            1 - pk([lim_1], [lim_2], metric="rbf")[0][0]
+        )
+    except:
+        print("failed rbf")
+        print(p)
+        print(q)
+        return 1
 
 
 def chi2_distance(p, q):

@@ -962,6 +962,17 @@ def create_model_dataset(
                     spec_columns_ + spec_change_columns_ + ["query", "target"]
                 )
 
+                for x in range(len(cleaned_df)):
+
+                    if (
+                        np.isnan(cleaned_df.iloc[x]["query"]).any()
+                        or np.isnan(cleaned_df.iloc[x]["target"]).any()
+                    ):
+
+                        print(
+                            f"nans at row {x} under param setting {i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
+                        )
+
                 # create columns of similarity scores
                 if centroid_tolerance_types[k] == "ppm":
                     sim_df = cleaned_df.apply(
@@ -1016,4 +1027,4 @@ def create_model_dataset(
                     )
 
     out_df["match"] = matches_df["match"]
-    return out_df
+    return cleaned_df, out_df

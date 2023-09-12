@@ -135,8 +135,12 @@ def centroid_spec(spec, ms2_ppm=None, ms2_da=None):
 
         spec_new = np.array(spec_new)
         # Sort by m/z
-        spec_new = spec_new[np.argsort(spec_new[:, 0])]
-        return spec_new
+        try:
+            spec_new = spec_new[np.argsort(spec_new[:, 0])]
+            return spec_new
+        except:
+            print("weird spec error again")
+            return spec
     else:
         return spec
 
@@ -356,6 +360,8 @@ def weight_intensity(x, power=1):
     """
     Jonah version of weight_intensity function
     """
+    if np.sum(x[:, 1]) == 0:
+        return x
 
     if type(power) == str:
         power = scipy.stats.entropy(x[:, 1])

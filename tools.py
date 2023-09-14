@@ -25,10 +25,11 @@ def standardize_spectrum(spectrum):
     """
     Sort spectrum by m/z, normalize spectrum to have intensity sum = 1.
     """
-    spectrum = spectrum[np.argsort(spectrum[:, 0])]
-    intensity_sum = np.sum(spectrum[:, 1])
-    if intensity_sum > 0:
-        spectrum[:, 1] /= intensity_sum
+    if len(spectrum) > 0:
+        spectrum = spectrum[np.argsort(spectrum[:, 0])]
+        intensity_sum = np.sum(spectrum[:, 1])
+        if intensity_sum > 0:
+            spectrum[:, 1] /= intensity_sum
     return spectrum
 
 
@@ -55,6 +56,9 @@ def clean_spectrum(
     # Check parameter
     if ms2_da is None and ms2_ppm is None:
         raise RuntimeError("MS2 tolerance need to be set!")
+
+    if len(spectrum) == 0:
+        return spectrum
 
     # 1. Remove the precursor ions
     if max_mz is not None:
@@ -139,8 +143,14 @@ def centroid_spec(spec, ms2_ppm=None, ms2_da=None):
             spec_new = spec_new[np.argsort(spec_new[:, 0])]
             return spec_new
         except:
-            print("weird spec error again")
-            return spec
+            if len(spec_new) == 0:
+                return spec_new
+            else:
+                print("still error")
+                print(spec)
+                print(spec_new)
+                return yool
+
     else:
         return spec
 
@@ -360,7 +370,7 @@ def weight_intensity(x, power=1):
     """
     Jonah version of weight_intensity function
     """
-    if np.sum(x[:, 1]) == 0:
+    if len(x) == 0 or np.sum(x[:, 1]) == 0:
         return x
 
     if type(power) == str:

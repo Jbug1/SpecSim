@@ -498,6 +498,8 @@ def get_cleaned_similarities(
 
 def get_spec_change_features(dirty, clean):
 
+    if len(clean) == 0:
+        clean = np.array([[1, 0]])
     ent_change = scipy.stats.entropy(dirty[:, 1]) - scipy.stats.entropy(clean[:, 1])
     peaks_change = len(dirty) - len(clean)
 
@@ -514,6 +516,12 @@ def get_spec_change_features(dirty, clean):
 
 
 def get_spec_features(spec_query, precursor_query, spec_target, precursor_target):
+
+    if len(spec_query) == 0:
+        spec_query = np.array([[1, 0]])
+
+    if len(spec_target) == 0:
+        spec_target = np.array([[1, 0]])
 
     outrow = np.zeros(8)
     # first get all peaks below precursor mz
@@ -1027,4 +1035,4 @@ def create_model_dataset(
                     )
 
     out_df["match"] = matches_df["match"]
-    return cleaned_df, out_df
+    return out_df

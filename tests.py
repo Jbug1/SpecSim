@@ -3,6 +3,50 @@ import spectral_similarity
 import numpy as np
 import time
 import pandas as pd
+from sklearn.metrics import roc_auc_score as auc
+
+def run_metrics_models_auc(metrics, models, test):
+    """
+    will run al metric aucs on test data for all model settings for default paper settings
+    unless otherwise hardcoded
+
+    models should be a tuple of (name, indices for input, trained_model)
+    """
+
+    #create dict to hold all scores
+    aucs = dict()
+
+    #make sure we have valid metric subset to look at
+    if metrics is None: 
+        metrics=list()
+        for i in spectral_similarity.methods_range:
+            metrics.append(i)
+            metrics.append('max_'+i)
+            metrics.append('min_'+i)
+            metrics.append('ave_'+i)
+
+        for i in metrics:
+
+            sims = test.apply(lambda x: spectral_similarity.multiple_similarity(x['query'],x['library'],methods =[i],ms2_da=0.05))
+            aucs[i]=auc(test.iloc[:,-1:],sims)
+
+    else:
+        for i in metrics:
+            aucs[i[0]]=auc(test.iloc[:,-1:],test.iloc[:,i[1]])
+
+    for i in models:
+
+        sims = i[2].predict_proba(test.iloc[:,i[1]]).squeeze()
+
+        if i[2].classes_[1]==True:
+            sims=sims[:,1]
+        else:
+            sims=sims[:,0]  
+
+        aucs[i[0]] = auc(test.iloc[:,-1:],sims)
+
+    return aucs
+
 
 
 def add_poisson_noise_to_spectrum(spec, precursor_mz, noise_peaks):

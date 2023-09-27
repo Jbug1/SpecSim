@@ -5,6 +5,7 @@ import tools
 import numpy as np
 import scipy
 import spectral_similarity
+import copy
 
 
 def get_adduct_subset(nist_df):
@@ -526,9 +527,11 @@ def get_spec_features(spec_query, precursor_query, spec_target, precursor_target
     outrow = np.zeros(8)
     # first get all peaks below precursor mz
 
+
     below_prec_indices = np.where(
         spec_query[:, 0] < (precursor_query - tools.ppm(precursor_query, 3))
     )
+
     mass_reduction = np.sum(spec_query[below_prec_indices][:, 1]) / np.sum(
         spec_query[:, 1]
     )
@@ -884,9 +887,51 @@ def create_matches_df(target_df, precursor_thresh, max_rows_per_query, max_len):
 
     return out
 
+def chunk_create_all_to_all(
+        outpath,
+        matches, 
+        sim_methods,
+        noise_threshes_query=[0.01],
+        centroid_tolerance_vals_query=[0.05],
+        centroid_tolerance_types_query=["da"],
+        powers_query=[1],
+        noise_threshes_target=[0.01],
+        centroid_tolerance_vals_target=[0.05],
+        centroid_tolerance_types_target=["da"],
+        powers_target=[1],
+):
+    
+    inds = [int(i*1e4) for i in range(int(len(matches)/1e4)+1)]
+
+    for i in range(len(inds)-1):
+
+        matches_df = matches.iloc[inds[i]:inds[i+1]]
+
+        out_df = create_model_dataset_all_to_all(
+            matches_df,
+            sim_methods,
+            noise_threshes_query,
+            centroid_tolerance_vals_query,
+            centroid_tolerance_types_query,
+            powers_query,
+            noise_threshes_target,
+            centroid_tolerance_vals_target,
+            centroid_tolerance_types_target,
+            powers_target
+        )
+
+        if i ==0:
+            out_df.to_csv(outpath,index=False)
+        else:
+            out_df.to_csv(outpath, mode='a', header=False, index=False)
+
+        if i%10==0:
+            print(f'processed {inds[i+1]} rows')
+    
+
 
 def create_model_dataset_all_to_all(
-    matches_df,
+    matches,
     sim_methods,
     noise_threshes_query=[0.01],
     centroid_tolerance_vals_query=[0.05],
@@ -896,21 +941,30 @@ def create_model_dataset_all_to_all(
     centroid_tolerance_vals_target=[0.05],
     centroid_tolerance_types_target=["da"],
     powers_target=[1],
+    verbose=False
 ):
 
-    spec_columns = [
+    spec_columns_query = [
         "ent_query",
         "npeaks_query",
         "normalent_query",
-        "mass_reduction_query",
+        "mass_reduction_query"]
+    
+    spec_columns_target = [
         "ent_target",
         "npeaks_target",
         "normalent_target",
         "mass_reduction_target",
     ]
 
+    inds = [i*1e4 for i in range(int(len(matches)/1e4))]
+
+    #helper variables that will hold transformed target specs and sims
+    targets_df = None
+    sims_outer_df = None
+
     # create initial value spec columns
-    out_df = matches_df.apply(
+    out_df = matches.apply(
         lambda x: get_spec_features(
             x["query"], x["query_prec"], x["target"], x["target_prec"]
         ),
@@ -918,14 +972,26 @@ def create_model_dataset_all_to_all(
         result_type="expand",
     )
 
-    out_df.columns = spec_columns
+    out_df.columns = spec_columns_query +spec_columns_target
 
+    ticker=0
     for i in noise_threshes_target:
         for j in powers_target:
             for k in range(len(centroid_tolerance_vals_target)):
 
+                
+                if verbose:
+                    ticker+=1
+                    if ticker %5==0:
+                        print(f'processed {ticker} settings for targets')
+                #create the spec columns specific to this parameter setting
+                spec_columns_ = [
+                    f"{x}_{i}_{j}_{centroid_tolerance_vals_target[k]}{centroid_tolerance_types_target[k]}"
+                    for x in spec_columns_target
+                ]
+
                 # clean the target columns for this setting
-                cleaned_df = matches_df.apply(
+                cleaned_df = matches.apply(
                     lambda x: clean_and_spec_features_single(
                         x["target"],
                         x["target_prec"],
@@ -944,7 +1010,7 @@ def create_model_dataset_all_to_all(
                 ]
 
                 # add the target spec columns to the initial df, leave off the transformed target
-                out_df = pd.concat(out_df, cleaned_df.iloc[:, :-1])
+                out_df = pd.concat((out_df, cleaned_df.iloc[:, :-1]), axis=1)
 
                 # begin targets df if this is the first, else concat
                 if targets_df is None:
@@ -962,17 +1028,18 @@ def create_model_dataset_all_to_all(
         for j in powers_query:
             for k in range(len(centroid_tolerance_vals_query)):
 
-                ticker += 1
-                if ticker % 10 == 0:
-                    print(f"added {ticker} settings")
+                if verbose:
+                    ticker += 1
+                    if ticker % 5 == 0:
+                        print(f"added {ticker} settings")
 
                 spec_columns_ = [
                     f"{x}_{i}_{j}_{centroid_tolerance_vals_query[k]}{centroid_tolerance_types_query[k]}"
-                    for x in spec_columns
+                    for x in spec_columns_query
                 ]
 
                 # clean specs and get corresponding spec features
-                cleaned_df = matches_df.apply(
+                cleaned_df = matches.apply(
                     lambda x: clean_and_spec_features_single(
                         x["query"],
                         x["query_prec"],
@@ -980,6 +1047,7 @@ def create_model_dataset_all_to_all(
                         centroid_thresh=centroid_tolerance_vals_query[k],
                         centroid_type=centroid_tolerance_types_query[k],
                         power=j,
+                        verbose=False
                     ),
                     axis=1,
                     result_type="expand",
@@ -990,7 +1058,7 @@ def create_model_dataset_all_to_all(
                 ]
 
                 # add the target spec columns to the initial df, leave off the transformed target
-                out_df = pd.concat(out_df, cleaned_df.iloc[:, :-1])
+                out_df = pd.concat((out_df, cleaned_df.iloc[:, :-1]), axis=1)
 
                 # no more need for spec feature columns
                 cleaned_df = cleaned_df.iloc[:, -1:]
@@ -1021,9 +1089,9 @@ def create_model_dataset_all_to_all(
 
     # create column names, ugly but necessary
     temp = [
-        i
+        x
         + f"query_{i}_{j}_{centroid_tolerance_vals_query[k]}_{centroid_tolerance_types_query[k]}"
-        for i in targets_df.columns
+        for x in targets_df.columns
     ]
     sim_names = list()
     for i in temp:
@@ -1031,8 +1099,8 @@ def create_model_dataset_all_to_all(
             sim_names.append(i + j)
     sims_outer_df.columns = sim_names
 
-    out_df = pd.concat((out_df, sims_outer_df))
-    out_df["match"] = matches_df["match"]
+    out_df = pd.concat((matches.iloc[:,:16],out_df, sims_outer_df), axis=1)
+    out_df["match"] = matches["match"]
     return out_df
 
 
@@ -1043,11 +1111,16 @@ def clean_and_spec_features_single(
     centroid_thresh,
     centroid_type="ppm",
     power=1,
+    verbose=False
 ):
     """
     Function to clean the query and target specs according to parameters passed. Returns only matched spec
     """
 
+    if verbose:
+        print(spec1)
+        print('yoop')
+    
     if centroid_type == "ppm":
 
         spec1_ = tools.clean_spectrum(
@@ -1063,11 +1136,20 @@ def clean_and_spec_features_single(
             spec1, noise_removal=noise_thresh, ms2_da=centroid_thresh, standardize=False
         )
 
+    if verbose:
+        print(spec1_)
+        print('specy')
+        
+
     # reweight by given power
     spec1_ = tools.weight_intensity(spec1_, power)
+    # print(spec1_)
 
     # get new spec features
     spec_features = get_spec_features_single(spec1_, prec1)
+    if verbose:
+        print(spec_features)
+        print(yools)
 
     spec1_ = tools.standardize_spectrum(spec1_)
 
@@ -1112,7 +1194,7 @@ def get_sim_features_all(targets, queries, sim_methods, ms2_ppm=None, ms2_da=Non
 
     sims_out = None
 
-    for i in targets.shape[1]:
+    for i in range(targets.shape[1]):
 
         temp = pd.concat((targets.iloc[:, i : i + 1], queries), axis=1)
 
@@ -1122,7 +1204,9 @@ def get_sim_features_all(targets, queries, sim_methods, ms2_ppm=None, ms2_da=Non
         sims = temp.apply(
             lambda x: get_sim_features(
                 x[col0], x[col1], methods=sim_methods, ms2_da=ms2_da, ms2_ppm=ms2_ppm
-            )
+            ), 
+            axis=1,
+            result_type="expand"
         )
 
         if sims_out is None:

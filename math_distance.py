@@ -42,6 +42,16 @@ def entropy_jonah_distance(p, q):
 
     return entropy_increase / norm_distance
 
+def manhattan_jonah_distance(p, q):
+    r"""
+    Manhattan distance:
+
+    .. math::
+
+        \sum|P_{i}-Q_{i}|
+    """
+    return np.sum(np.abs(p - q))/np.sum(np.concatenate([p,q]))
+
 
 def lorentzian_jonah_distance(p, q):
     r"""
@@ -93,7 +103,7 @@ def cross_entropy(p, q):
 
     epsilon = 1e-10
     q = q + epsilon
-    return -np.sum(p * np.log(q)) / 22.332
+    return -np.sum(p * np.log(q))
 
 
 def binary_cross_entropy(y_true, y_pred):
@@ -101,7 +111,7 @@ def binary_cross_entropy(y_true, y_pred):
     epsilon = 1e-10
     y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
     ce = -y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
-    return sum(ce) / 46.0517018
+    return sum(ce)
 
 
 def kl_distance(p, q):
@@ -733,10 +743,7 @@ def correlation_distance(p, q):
     lim_2 = np.zeros(len(p))
 
     lim_1[0] += 1
-    try:
-        lim_2[1] += 1
-    except:
-        pass
+    lim_2[1] += 1
 
     return dist.correlation(p, q) / dist.correlation(lim_1, lim_2)
 
@@ -746,7 +753,7 @@ def jensenshannon_distance(p, q):
     max is 0.82
     """
 
-    if len(p) == 0:
+    if len(p) <2:
         return 1
 
     # create zero arrays for normalization constant
@@ -754,10 +761,7 @@ def jensenshannon_distance(p, q):
     lim_2 = np.zeros(len(p))
 
     lim_1[0] += 1
-    try:
-        lim_2[1] += 1
-    except:
-        pass
+    lim_2[1] += 1
 
     return dist.jensenshannon(p, q) / dist.jensenshannon(lim_1, lim_2)
 

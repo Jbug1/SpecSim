@@ -5,7 +5,7 @@ import time
 import pandas as pd
 from sklearn.metrics import roc_auc_score as auc
 
-def run_metrics_models_auc(metrics, models, test):
+def run_metrics_models_auc(metrics, models, test, tol_thresh, tol_type):
     """
     will run al metric aucs on test data for all model settings for default paper settings
     unless otherwise hardcoded
@@ -17,22 +17,39 @@ def run_metrics_models_auc(metrics, models, test):
     aucs = dict()
 
     #make sure we have valid metric subset to look at
-    if metrics is None: 
+    if metrics is not None: 
+        for i in metrics:
+            aucs[i[0]]=auc(test.iloc[:,-1:],test.iloc[:,i[1]])
+
+    else:
+
         metrics=list()
         for i in spectral_similarity.methods_range:
             metrics.append(i)
             metrics.append('max_'+i)
-            metrics.append('min_'+i)
-            metrics.append('ave_'+i)
+            # metrics.append('min_'+i)
+            # metrics.append('ave_'+i)
 
-        for i in metrics:
-
-            sims = test.apply(lambda x: spectral_similarity.multiple_similarity(x['query'],x['library'],methods =[i],ms2_da=0.05))
-            aucs[i]=auc(test.iloc[:,-1:],sims)
-
-    else:
-        for i in metrics:
-            aucs[i[0]]=auc(test.iloc[:,-1:],test.iloc[:,i[1]])
+        if tol_type == 'da':
+            sims = test.apply(lambda x: spectral_similarity.multiple_similarity(x['query'],x['library'],methods =metrics, ms2_da = tol_thresh), axis=1)
+        else:
+            sims = test.apply(lambda x: spectral_similarity.multiple_similarity(x['query'],x['library'],methods =metrics, ms2_ppm = tol_thresh), axis=1)
+        
+        try:
+            #sims = [x[i] for x in sims]
+            pass
+            #aucs[i]=auc(test.iloc[:,-1:],sims)
+        except:
+            print(f'error on {i}')
+            # print(sims)
+            
+            # for i in range(len(sims)):
+            #     if np.isnan(sims[i]):
+            #         print(sims[i])
+            #         print(test.iloc[i]['query'])
+            #         print(test.iloc[i]['library'])
+                    
+            # print('tayslkdf')
 
     for i in models:
 
@@ -45,7 +62,7 @@ def run_metrics_models_auc(metrics, models, test):
 
         aucs[i[0]] = auc(test.iloc[:,-1:],sims)
 
-    return aucs
+    return sims
 
 
 

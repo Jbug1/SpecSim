@@ -7,6 +7,7 @@ from typing import Union
 methods_range = {
     "entropy_jonah": [0, 1],
     "lorentzian_jonah": [0, 1],
+    "manhattan_jonah": [0,1],
     "entropy": [0, np.log(4)],
     "absolute_value": [0, 2],
     "bhattacharya_1": [0, np.arccos(0) ** 2],
@@ -43,9 +44,9 @@ methods_range = {
     "gini": [0, 1],
     "l2": [0, 1],
     "common_mass": [0, 1],
-    "cross_ent": [0, 1],
+    "cross_ent": [0, np.inf],
     "braycurtis": [0, 1],
-    "binary_cross_ent": [0, 1],
+    "binary_cross_ent": [0, np.inf],
     "kl": [0, 1],
     "chebyshev": [0, 1],
     "fidelity": [0, 1],
@@ -235,6 +236,11 @@ def multiple_similarity(
     :param need_normalize_result: Normalize the result into [0,1].
     :return: Distance between two spectra
     """
+    result = {}
+    if len(spectrum_query)==0 or len(spectrum_library)==0:
+        for m in methods:
+            result[m]=0
+        return result
 
     if methods is None:
         methods = (
@@ -243,7 +249,6 @@ def multiple_similarity(
             + [f"max_{i}" for i in methods_range]
         )
 
-    result = {}
     if ms2_ppm is not None:
         spec_matched = tools.match_peaks_in_spectra(
             spectrum_query, spectrum_library, ms2_ppm=ms2_ppm

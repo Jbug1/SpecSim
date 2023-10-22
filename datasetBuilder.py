@@ -957,8 +957,6 @@ def create_model_dataset_all_to_all(
         "mass_reduction_target",
     ]
 
-    inds = [i*1e4 for i in range(int(len(matches)/1e4))]
-
     #helper variables that will hold transformed target specs and sims
     targets_df = None
     sims_outer_df = None
@@ -972,7 +970,7 @@ def create_model_dataset_all_to_all(
         result_type="expand",
     )
 
-    out_df.columns = spec_columns_query +spec_columns_target
+    out_df.columns = spec_columns_query + spec_columns_target
 
     ticker=0
     for i in noise_threshes_target:
@@ -1014,13 +1012,16 @@ def create_model_dataset_all_to_all(
 
                 # begin targets df if this is the first, else concat
                 if targets_df is None:
-                    targets_df = cleaned_df.iloc[:, -1:]
+                    targets_df = cleaned_df.iloc[:, -1:].copy()
                 else:
                     targets_df = pd.concat(
                         (targets_df, cleaned_df.iloc[:, -1:]), axis=1
                     )
 
                 del cleaned_df
+
+    #create variable to store column names
+    sim_names=list()
 
     # now that we have all the spec metrics from the target, do query
     ticker = 0
@@ -1063,42 +1064,44 @@ def create_model_dataset_all_to_all(
                 # no more need for spec feature columns
                 cleaned_df = cleaned_df.iloc[:, -1:]
 
-                # now loop over ALL centroiding procedures
-                for cent in range(len(centroid_tolerance_types_query)):
-                    if centroid_tolerance_types_query[cent] == "ppm":
-                        sim_df = get_sim_features_all(
-                            targets_df,
-                            cleaned_df.iloc[:, -1:],
-                            sim_methods,
-                            ms2_ppm=centroid_tolerance_vals_query[cent],
-                        )
+                #take corresponding centroiding type for similarity
+                if centroid_tolerance_types_query[k] == "ppm":
+                    sim_df = get_sim_features_all(
+                        targets_df,
+                        cleaned_df,
+                        sim_methods,
+                        ms2_ppm=centroid_tolerance_vals_query[k],
+                    )
 
-                    else:
-                        sim_df = get_sim_features_all(
-                            targets_df,
-                            cleaned_df.iloc[:, -1:],
-                            sim_methods,
-                            ms2_ppm=centroid_tolerance_vals_query[cent],
-                        )
+                else:
+                    sim_df = get_sim_features_all(
+                        targets_df,
+                        cleaned_df,
+                        sim_methods,
+                        ms2_ppm=centroid_tolerance_vals_query[k],
+                    )
 
                 # add all the similarities to the sims outer df
                 if sims_outer_df is None:
-                    sims_outer_df = sim_df
+                    sims_outer_df = sim_df.copy()
                 else:
                     sims_outer_df = pd.concat((sims_outer_df, sim_df), axis=1)
 
-    # create column names, ugly but necessary
-    temp = [
-        x
-        + f"query_{i}_{j}_{centroid_tolerance_vals_query[k]}_{centroid_tolerance_types_query[k]}"
-        for x in targets_df.columns
-    ]
-    sim_names = list()
-    for i in temp:
-        for j in sim_methods:
-            sim_names.append(i + j)
-    sims_outer_df.columns = sim_names
+                del sim_df
 
+
+                # create column names for what we have just produced
+                temp = [
+                    x
+                    + f"query_{i}_{j}_{centroid_tolerance_vals_query[k]}_{centroid_tolerance_types_query[k]}"
+                    for x in targets_df.columns
+                ]
+                
+                for i_ in temp:
+                    for j_ in sim_methods:
+                        sim_names.append(i_ + j_)
+
+    sims_outer_df.columns = sim_names
     out_df = pd.concat((matches.iloc[:,:16],out_df, sims_outer_df), axis=1)
     out_df["match"] = matches["match"]
     return out_df
@@ -1119,7 +1122,6 @@ def clean_and_spec_features_single(
 
     if verbose:
         print(spec1)
-        print('yoop')
     
     if centroid_type == "ppm":
 
@@ -1138,7 +1140,6 @@ def clean_and_spec_features_single(
 
     if verbose:
         print(spec1_)
-        print('specy')
         
 
     # reweight by given power
@@ -1214,7 +1215,7 @@ def get_sim_features_all(targets, queries, sim_methods, ms2_ppm=None, ms2_da=Non
         else:
             sims_out = pd.concat((sims_out, sims), axis=1)
 
-    return sims
+    return sims_out
 
 
 def create_model_dataset(

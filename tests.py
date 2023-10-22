@@ -5,6 +5,42 @@ import time
 import pandas as pd
 from sklearn.metrics import roc_auc_score as auc
 
+
+def create_variable_comparisons(target, size, ppm_threshes, noise_threshes, centroid_threshes, centroid_types, powers, sim_methods, max_matches, outfolder):
+
+    for i in ppm_threshes:
+
+        matches = datasetBuilder.create_matches_df(target,i,max_matches,size)
+        filepath = f'{outfolder}/matches_{i}_ppm.csv'
+
+        for j in noise_threshes:
+            for k in range(len(centroid_threshes)):
+                for l in powers:
+
+                    cleaned = matches.apply(lambda x: datasetBuilder.clean_and_spec_features(x['query'],
+                                                                                             x['query_prec'],
+                                                                                             x['target'],
+                                                                                             x['target_prec'],
+                                                                                             noise_thresh=j,
+                                                                                             centroid_thresh = centroid_threshes[k],
+                                                                                             centroid_type=centroid_types[k],
+                                                                                             power=l
+                                                                                             ), 
+                                                                                             axis=1,
+                                                                                             result_type='expand')
+                    
+                    
+                    cleaned=pd.DataFrame(cleaned)
+                    cleaned = cleaned.iloc[:,-2:]
+                    cleaned.columns = ['query','library']
+                                                                             
+                    aucs = tests.run_metrics_models_auc(sim_methods,[],cleaned, tol_thresh = centroid_threshes[k], tol_type=centroid_types[k])
+                    aucs = auc_to_df(aucs, list(matches.iloc[:,-1]))
+                    aucs['clean_specs'] =  f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}'
+                    print(f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}')
+                    aucs.to_csv(filepath, mode='a', header=False)
+
+
 def run_metrics_models_auc(metrics, models, test, tol_thresh, tol_type):
     """
     will run al metric aucs on test data for all model settings for default paper settings

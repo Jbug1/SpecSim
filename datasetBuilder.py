@@ -790,13 +790,13 @@ def clean_and_spec_features(
     spec_features = get_spec_features(spec1_, prec1, spec2_, prec2)
 
     # get spec change features
-    spec1_features = get_spec_change_features(spec1, spec1_)
-    spec2_features = get_spec_change_features(spec2, spec2_)
+    # spec1_features = get_spec_change_features(spec1, spec1_)
+    # spec2_features = get_spec_change_features(spec2, spec2_)
 
     spec1_ = tools.standardize_spectrum(spec1_)
     spec2_ = tools.standardize_spectrum(spec2_)
 
-    return spec_features + spec1_features + spec2_features + [spec1_, spec2_]
+    return spec_features + [spec1_, spec2_] #spec1_features + spec2_features 
 
 
 def get_sim_features(query, lib, methods, ms2_da=None, ms2_ppm=None):
@@ -1224,7 +1224,7 @@ def create_model_dataset(
     noise_threshes=[0.01],
     centroid_tolerance_vals=[0.05],
     centroid_tolerance_types=["da"],
-    powers=[1],
+    powers=[None],
 ):
     """ """
     # create helper vars
@@ -1239,16 +1239,16 @@ def create_model_dataset(
         "normalent_target",
         "mass_reduction_target",
     ]
-    spec_change_columns = [
-        "query_ent_change",
-        "query_peaks_change",
-        "query_normal_ent_change",
-        "query_mass_change",
-        "target_ent_change",
-        "target_peaks_change",
-        "target_normal_ent_change",
-        "target_mass_change",
-    ]
+    # spec_change_columns = [
+    #     "query_ent_change",
+    #     "query_peaks_change",
+    #     "query_normal_ent_change",
+    #     "query_mass_change",
+    #     "target_ent_change",
+    #     "target_peaks_change",
+    #     "target_normal_ent_change",
+    #     "target_mass_change",
+    # ]
 
     # create initial value spec columns
     init_spec_df = matches_df.apply(
@@ -1275,10 +1275,10 @@ def create_model_dataset(
                     for x in spec_columns
                 ]
 
-                spec_change_columns_ = [
-                    f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
-                    for x in spec_change_columns
-                ]
+                # spec_change_columns_ = [
+                #     f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
+                #     for x in spec_change_columns
+                # ]
                 sim_columns_ = [
                     f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
                     for x in sim_methods

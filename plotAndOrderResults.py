@@ -3,6 +3,54 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from sklearn.metrics import auc
+import datasetBuilder
+
+########Figures Here######
+def fig1a(dir, matches_dir):
+    """
+    This directory will have n csvs that state overall metric performance on full sample
+
+    This function will print the top 10 metrics for each and graph roc curves for best metric, entropy, dot, revdot
+    """
+
+    for i in os.listdir(dir):
+
+        window = i.split('_')[1].split('.')[0]
+        res=pd.read_csv(f'dir/{i}')
+        res.sort_values(by='AUROC')
+        top=res.iloc[0]['metric']
+
+        #get the parameters for top scoring metric
+        name, noise, power, cent, cent_type = top.split('_')
+        matches = pd.read_csv(f'{matches_dir}/{window}_ppm.csv')
+
+        #get the curves for the 'traditional metrics'
+        orig_res = datasetBuilder.create_model_dataset(matches,
+                                                    sim_methods = ['cosine','entropy','reverse_dot_product'],
+                                                    )
+        #only maintain similarity columns and match
+        orig_res = origs.iloc[:,16:]
+
+        #get the scores for the top scoring result
+        top_res =  datasetBuilder.create_model_dataset(matches,
+                                                    sim_methods = [name],
+                                                    noise_threshes=noise,
+                                                    centroid_tolerance_vals=[cent],
+                                                    centroid_tolerance_types=[cent_type],
+                                                    powers=[power]
+                                                    )   
+        #we only want similarity scores column
+        top_res=top_res.iloc[:,16:17]
+
+        orig_res=pd.concat((orig_res, top_res), axis=1)
+        
+
+
+
+
+
+
+
 
 
 def add_evals_to_df(dataframe):

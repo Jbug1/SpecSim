@@ -6,39 +6,78 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score as auc
 
 
-def create_variable_comparisons(target, size, ppm_threshes, noise_threshes, centroid_threshes, centroid_types, powers, sim_methods, max_matches, outfolder):
+def best_model_select(models, train, val, test):
+    
+    model_errs = np.zeros(len(models))
+    train['match']=train['match'].astype(int)
+    val['match']=val['match'].astype(int)
+    test['match']=test['match'].astype(int)
 
-    for i in ppm_threshes:
+    best_model = None
+    best_error=np.inf
 
-        matches = datasetBuilder.create_matches_df(target,i,max_matches,size)
-        filepath = f'{outfolder}/matches_{i}_ppm.csv'
+    i=0
+    for model in models:
 
-        for j in noise_threshes:
-            for k in range(len(centroid_threshes)):
-                for l in powers:
+        clf = sklearn.base.clone(model)
+        clf.fit(train.iloc[:,:-1], train.iloc[:,-1])
+        val_error = zero_one_loss(clf.predict(val.iloc[:,:-1]),val.iloc[:,-1:].to_numpy())
 
-                    cleaned = matches.apply(lambda x: datasetBuilder.clean_and_spec_features(x['query'],
-                                                                                             x['query_prec'],
-                                                                                             x['target'],
-                                                                                             x['target_prec'],
-                                                                                             noise_thresh=j,
-                                                                                             centroid_thresh = centroid_threshes[k],
-                                                                                             centroid_type=centroid_types[k],
-                                                                                             power=l
-                                                                                             ), 
-                                                                                             axis=1,
-                                                                                             result_type='expand')
-                    
-                    
-                    cleaned=pd.DataFrame(cleaned)
-                    cleaned = cleaned.iloc[:,-2:]
-                    cleaned.columns = ['query','library']
-                                                                             
-                    aucs = tests.run_metrics_models_auc(sim_methods,[],cleaned, tol_thresh = centroid_threshes[k], tol_type=centroid_types[k])
-                    aucs = auc_to_df(aucs, list(matches.iloc[:,-1]))
-                    aucs['clean_specs'] =  f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}'
-                    print(f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}')
-                    aucs.to_csv(filepath, mode='a', header=False)
+        if val_error < best_error:
+            best_model=copy.deepcopy(clf)
+            best_error = val_error
+
+        del(clf)
+        model_errs[i]=val_error
+        i+=1
+
+    return str(best_model), zero_one_loss(best_model.predict(test.iloc[:,:-1]),test.iloc[:,-1:].to_numpy()), model_errs
+
+def best_models_by_subset(cols, train_sizes, models, train, val, test):
+
+    res_dict=dict()
+    for key, value in cols.items():
+        res_dict[key]=list()
+
+        for size in train_sizes:
+    
+            res_dict[key].append(best_model_select(models, train.iloc[:size,value+[-1]], val.iloc[:,value+[-1]], test.iloc[:,value+[-1]]))
+
+            print(f'finished {key} for {size}')
+
+    return res_dict
+
+def create_variable_comparisons(noise_threshes, centroid_threshes, centroid_types, powers, sim_methods, matches, outfolder):
+
+    #matches = datasetBuilder.create_matches_df(target,i,max_matches,size)
+    filepath = f'{outfolder}/matches_{i}_ppm.csv'
+
+    for j in noise_threshes:
+        for k in range(len(centroid_threshes)):
+            for l in powers:
+
+                cleaned = matches.apply(lambda x: datasetBuilder.clean_and_spec_features(x['query'],
+                                                                                            x['query_prec'],
+                                                                                            x['target'],
+                                                                                            x['target_prec'],
+                                                                                            noise_thresh=j,
+                                                                                            centroid_thresh = centroid_threshes[k],
+                                                                                            centroid_type=centroid_types[k],
+                                                                                            power=l
+                                                                                            ), 
+                                                                                            axis=1,
+                                                                                            result_type='expand')
+                
+                
+                cleaned=pd.DataFrame(cleaned)
+                cleaned = cleaned.iloc[:,-2:]
+                cleaned.columns = ['query','library']
+                                                                            
+                aucs = tests.run_metrics_models_auc(sim_methods,[],cleaned, tol_thresh = centroid_threshes[k], tol_type=centroid_types[k])
+                aucs = auc_to_df(aucs, list(matches.iloc[:,-1]))
+                aucs['clean_specs'] =  f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}'
+                print(f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}')
+                aucs.to_csv(filepath, mode='a', header=False)
 
 
 def run_metrics_models_auc(metrics, models, test, tol_thresh, tol_type):

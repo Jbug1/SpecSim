@@ -76,7 +76,6 @@ def create_variable_comparisons(noise_threshes, centroid_threshes, centroid_type
                 aucs = tests.run_metrics_models_auc(sim_methods,[],cleaned, tol_thresh = centroid_threshes[k], tol_type=centroid_types[k])
                 aucs = auc_to_df(aucs, list(matches.iloc[:,-1]))
                 aucs['clean_specs'] =  f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}'
-                print(f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}')
                 aucs.to_csv(filepath, mode='a', header=False)
 
 

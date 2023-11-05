@@ -18,13 +18,15 @@ def get_adduct_subset(nist_df):
 
 def get_target_df(
     target_path,
+    adduct_sub=False
 ):
 
     # get whole dataframe from msp files
     target_df = convert_msp_to_df_2(target_path)
 
     # get adduct subsets
-    target_df = get_adduct_subset(target_df)
+    if adduct_sub:
+        target_df = get_adduct_subset(target_df)
 
     # subset to only where we have real inchis
     target_df = target_df[target_df["inchi"] != ""]
@@ -385,7 +387,434 @@ def convert_msp_to_df_2(filepath):
         "spectrum": specs,
     }
 
+    for key, val in outdict.items():
+        print(f'{key}: {len(val)}')
+
     return pd.DataFrame(outdict)
+
+def convert_msp_to_df_5(filepath):
+    """
+    Metlin
+    """
+
+    with open(filepath) as f:
+        lines = f.readlines()
+
+    names = list()
+    precursortype = list()
+    num_peaks = list()
+    precursors = list()
+    inchis = list()
+    inchis_firsts = list()
+    isv = list()
+    collision_gas = list()
+    collision_energy = list()
+    instrument = list()
+    specs = list()
+    mslvls=list()
+
+    spec = list()
+    inchi = ""
+    collision_gas_ = ""
+    collision_energy_ = -1
+    isv_ = -1
+    instrument_ = ""
+    name=""
+    prectype=""
+    inchi=""
+    precmz=""
+    n_peak=""
+    mslvl=""
+
+
+    tot_rows = 0
+    for i in lines:
+
+        splitty = i.split(":")
+        if splitty[0] == "\n":
+
+            if len(spec)>0:
+
+                specs.append(np.array(spec))
+                spec = list()
+
+                inchis.append(inchi)
+                inchis_firsts.append(inchi.split("-")[0])
+                inchi = ""
+
+                collision_gas.append(collision_gas_)
+                collision_gas_ = ""
+
+                collision_energy.append(collision_energy_)
+                collision_energy_ = -1
+
+                isv.append(isv_)
+                isv_ = -1
+
+                instrument.append(instrument_)
+                instrument_ = ""
+
+                num_peaks.append(n_peak)
+                n_peak=""
+
+                names.append(name)
+                name=""
+
+                precursors.append(precmz)
+                precmz=""
+
+                precursortype.append(prectype)
+                prectype=""
+
+                mslvls.append(mslvl)
+                mslvl=""
+
+                tot_rows += 1
+            
+            continue
+
+        if splitty[0] == "Name":
+            name= splitty[1].strip()
+
+        elif splitty[0] == "PrecursorMZ":
+                precmz  = splitty[1].split(",")[0].strip()
+
+        elif splitty[0] == "Num peaks":
+            n_peak = splitty[1].strip()
+
+        elif splitty[0].strip()=='Synon':
+
+            if splitty[-1][:2] == "03":
+                prectype= splitty[-1].split(':')[-1][2:].strip()
+
+            if splitty[-1][:2] == "28":
+                inchi= splitty[-1][2:].strip()
+
+            if splitty[-1].split(':')[-1][:2] == "00":
+                mslvl= splitty[-1][2:].strip()
+
+            if splitty[-1][:2] == "05":
+                collision_energy_= splitty[-1].replace('05','').strip()
+            
+            if splitty[-1][:2] == "06":
+                instrument_= splitty[-1].split(':')[-1][2:].strip()
+
+
+        elif tools.is_digit(splitty[0].split()[0]):
+            spec.append([float(splitty[0].split()[0]), float(splitty[0].split()[1])])
+
+    outdict = {
+        "name": names,
+        "precursor_type": precursortype,
+        "n_peaks": num_peaks,
+        "precursor": precursors,
+        "inchi": inchis,
+        "inchi_base": inchis_firsts,
+        "isv": isv,
+        "instrument": instrument,
+        "collision_gas": collision_gas,
+        "collision_energy": collision_energy,
+        "spectrum": specs,
+    }
+
+    for key, val in outdict.items():
+        print(f'{key}: {len(val)}')
+
+    return pd.DataFrame(outdict)
+
+def convert_msp_to_df_3(filepath):
+    """
+    GNPS
+    """
+
+    with open(filepath) as f:
+        lines = f.readlines()
+
+    names = list()
+    precursortype = list()
+    num_peaks = list()
+    precursors = list()
+    inchis = list()
+    inchis_firsts = list()
+    isv = list()
+    collision_gas = list()
+    collision_energy = list()
+    instrument = list()
+    specs = list()
+
+    spec = list()
+    inchi = ""
+    collision_gas_ = ""
+    collision_energy_ = -1
+    isv_ = -1
+    instrument_ = ""
+    name=""
+    prectype=""
+    inchi=""
+    precmz=""
+    n_peak=""
+
+
+    tot_rows = 0
+    for i in lines:
+
+        splitty = i.split(":")
+        if splitty[0] == "\n":
+
+            if len(spec)>0:
+
+                specs.append(np.array(spec))
+                spec = list()
+
+                inchis.append(inchi)
+                inchis_firsts.append(inchi.split("-")[0])
+                inchi = ""
+
+                collision_gas.append(collision_gas_)
+                collision_gas_ = ""
+
+                collision_energy.append(collision_energy_)
+                collision_energy_ = -1
+
+                isv.append(isv_)
+                isv_ = -1
+
+                instrument.append(instrument_)
+                instrument_ = ""
+
+                num_peaks.append(n_peak)
+                n_peak=""
+
+                names.append(name)
+                name=""
+
+                precursors.append(precmz)
+                precmz=""
+
+                precursortype.append(prectype)
+                prectype=""
+
+                tot_rows += 1
+            
+            continue
+
+        if splitty[0] == "NAME":
+            name = splitty[1].strip()
+
+        if splitty[0] == "PRECURSORTYPE":
+            prectype= splitty[1].strip()
+
+        if splitty[0] == "INCHIKEY":
+            inchi = splitty[1].strip()
+
+        elif splitty[0] == "PRECURSORMZ":
+
+            precmz  = splitty[1].split(",")[0].strip()
+
+        elif splitty[0] == "Num Peaks":
+            n_peak = splitty[1].strip()
+
+        elif splitty[0] == "COLLISIONGAS":
+            collision_gas_ = splitty[1].strip()
+
+        elif splitty[0] == "COLLISIONENERGY":
+            collision_energy_ = splitty[1].strip()
+
+            for i in collision_energy_:
+
+                if not tools.is_digit(i):
+
+                    collision_energy_ = -1
+                    break
+
+        elif splitty[0] == "ISV":
+            isv_ = splitty[1].strip()
+
+            for i in isv_:
+
+                if not tools.is_digit(i):
+
+                    isv_ = -1
+                    break
+
+        elif splitty[0] == "INSTRUMENTTYPE":
+            instrument_ = splitty[1].strip()
+
+        elif tools.is_digit(splitty[0].split()[0]):
+            spec.append([float(splitty[0].split()[0]), float(splitty[0].split()[1])])
+
+    outdict = {
+        "name": names,
+        "precursor_type": precursortype,
+        "n_peaks": num_peaks,
+        "precursor": precursors,
+        "inchi": inchis,
+        "inchi_base": inchis_firsts,
+        "isv": isv,
+        "instrument": instrument,
+        "collision_gas": collision_gas,
+        "collision_energy": collision_energy,
+        "spectrum": specs,
+    }
+
+    for key, val in outdict.items():
+        print(f'{key}: {len(val)}')
+
+    return pd.DataFrame(outdict)
+
+def convert_msp_to_df_4(filepath):
+    """
+    Mona
+    """
+
+    with open(filepath) as f:
+        lines = f.readlines()
+
+    names = list()
+    precursortype = list()
+    num_peaks = list()
+    precursors = list()
+    inchis = list()
+    inchis_firsts = list()
+    isv = list()
+    collision_gas = list()
+    collision_energy = list()
+    instrument = list()
+    specs = list()
+    spec_types=list()
+
+    spec = list()
+    inchi = ""
+    collision_gas_ = ""
+    collision_energy_ = -1
+    isv_ = -1
+    instrument_ = ""
+    name=""
+    prectype=""
+    inchi=""
+    precmz=""
+    n_peak=""
+
+    tot_rows = 0
+    for i in lines:
+
+        splitty = i.split(":")
+        if splitty[0] == "\n":
+
+            if len(spec)>0:
+
+                specs.append(np.array(spec))
+                spec = list()
+
+                inchis.append(inchi)
+                inchis_firsts.append(inchi.split("-")[0])
+                inchi = ""
+
+                collision_gas.append(collision_gas_)
+                collision_gas_ = ""
+
+                collision_energy.append(collision_energy_)
+                collision_energy_ = -1
+
+                isv.append(isv_)
+                isv_ = -1
+
+                instrument.append(instrument_)
+                instrument_ = ""
+
+                num_peaks.append(n_peak)
+                n_peak=""
+
+                names.append(name)
+                name=""
+
+                precursors.append(precmz)
+                precmz=""
+
+                precursortype.append(prectype)
+                prectype=""
+
+                spec_types.append(spec_type)
+                spec_type=""
+
+                tot_rows += 1
+                continue
+            
+            else:
+                continue
+            
+
+        if splitty[0] == "Name":
+            name = splitty[1].strip()
+
+        if splitty[0] == "Spectrum_type":
+            spec_type = splitty[1].strip()
+
+        if splitty[0] == "Precursor_type":
+            prectype= splitty[1].strip()
+
+        if splitty[0] == "InChIKey":
+            inchi = splitty[1].strip()
+
+        elif splitty[0] == "ExactMass":
+
+            precmz  = splitty[1].split(",")[0].strip()
+
+        elif splitty[0] == "Num Peaks":
+            n_peak = splitty[1].strip()
+
+        elif splitty[0] == "Collision_gas":
+            collision_gas_ = splitty[1].strip()
+
+        elif splitty[0] == "Collision_energy":
+            collision_energy_ = splitty[1].strip()[:-1]
+
+            # for i in collision_energy_:
+
+            #     if not tools.is_digit(i):
+
+            #         collision_energy_ = -1
+            #         break
+
+        elif splitty[0] == "ISV":
+            isv_ = splitty[1].strip()
+
+            for i in isv_:
+
+                if not tools.is_digit(i):
+
+                    isv_ = -1
+                    break
+
+        elif splitty[0] == "Instrument_type":
+            instrument_ = splitty[1].strip()
+
+        elif tools.is_digit(splitty[0].split()[0]):
+            spec.append([float(splitty[0].split()[0]), float(splitty[0].split()[1])])
+            
+
+
+    outdict = {
+        "name": names,
+        "precursor_type": precursortype,
+        "n_peaks": num_peaks,
+        "precursor": precursors,
+        "inchi": inchis,
+        "inchi_base": inchis_firsts,
+        "isv": isv,
+        "instrument": instrument,
+        "collision_gas": collision_gas,
+        "collision_energy": collision_energy,
+        "spec_types":spec_types,
+        "spectrum": specs,
+    }
+
+    for key, val in outdict.items():
+        print(f'{key}: {len(val)}')
+
+    return pd.DataFrame(outdict)
+
+
 
 
 def row_builder(
@@ -806,6 +1235,85 @@ def get_sim_features(query, lib, methods, ms2_da=None, ms2_ppm=None):
     )
     return [sims[i] for i in methods]
 
+def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_query, max_len):
+
+    non_spec_columns = [
+        "cequery",
+        "isvquery",
+        "cetarget",
+        "isvtarget",
+        "cgsame",
+        "instsame",
+        "cesame",
+        "isvsame",
+        "isvratio",
+        "ceratio",
+        "isvabs",
+        "ceabs",
+        "prec_abs_dif",
+        "prec_ppm_dif",
+    ]
+    seen = 0
+    out = None
+    target_df = target_df.sample(frac=1)
+    printy = 1e5
+
+    for i in range(len(query_df)):
+
+        within_range = target_df[
+            abs(query_df.iloc[i]["precursor"] - target_df["precursor"])
+            < tools.ppm(query_df.iloc[i]["precursor"], precursor_thresh)
+        ]
+        within_range = within_range.sample(frac=1)[:max_rows_per_query]
+
+        within_range.reset_index(inplace=True)
+        seen += len(within_range)
+
+        if seen > printy:
+
+            print(f"{seen} rows created")
+            printy = printy + 1e5
+
+        if out is None:
+            out = within_range.apply(
+                lambda x: add_non_spec_features(target_df.iloc[i], x),
+                axis=1,
+                result_type="expand",
+            )
+            out.columns = non_spec_columns
+
+            out["query_prec"] = query_df.iloc[i]["precursor"]
+            out["target_prec"] = within_range["precursor"].tolist()
+            out["query"] = [query_df.iloc[i]["spectrum"] for x in range(len(out))]
+
+            out["target"] = within_range["spectrum"].tolist()
+            out["match"] = [
+                query_df.iloc[i]["inchi_base"] == within_range.iloc[x]["inchi_base"]
+                for x in range(len(within_range))
+            ]
+
+        else:
+            temp = within_range.apply(
+                lambda x: add_non_spec_features(target_df.iloc[i], x),
+                axis=1,
+                result_type="expand",
+            )
+
+            temp.columns = non_spec_columns
+
+            temp["query"] = [query_df.iloc[i]["spectrum"] for x in range(len(temp))]
+            temp["query_prec"] = query_df.iloc[i]["precursor"]
+            temp["target"] = within_range["spectrum"]
+            temp["target_prec"] = within_range["precursor"]
+            temp["match"] = (
+                query_df.iloc[i]["inchi_base"] == within_range["inchi_base"]
+            )
+            out = pd.concat([out, temp])
+
+        if len(out) >= max_len:
+            return out
+
+    return out
 
 def create_matches_df(target_df, precursor_thresh, max_rows_per_query, max_len):
 

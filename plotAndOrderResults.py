@@ -42,8 +42,60 @@ def fig1a(dir, matches_dir):
         #we only want similarity scores column
         top_res=top_res.iloc[:,16:17]
 
-        orig_res=pd.concat((orig_res, top_res), axis=1)
+        orig_res=pd.concat((top_res, orig_res), axis=1)
+
+        #execute function to get plot data
+        names, xs, ys = plot1a_data(orig_res)
+
+        for i in range(len(metrics)):
+            plt.plot(xs[i], ys[i], label=metrics[i])
+
+        plt.xlabel = 'FPR'
+        plt.ylabel = 'TPR'
+        plt.title = 'ROC Curves for Selected Metrics'
+        plt.show()
+
+
+def plot1a_data(df):
+
+    "plot ROC curves for all metrics given"
+
+    xs=list()
+    ys=list()
+
+    tot_true = np.sum(df['matches'])
+    tot_false = len(df)-tot_true
+    for i in range(df.shape[1]-1):
+
+        df.sort_values(by=i, inplace=True)
         
+
+        running_pos=0
+        running_neg=0
+
+        ys_ = np.zeros(len(df))
+        xs=np.zeros(len(df))
+        for j in range(len(df)):
+            
+            if df.iloc[j]['matches']==True:
+                running_pos+=1
+
+            else:
+                running_neg+=1
+
+            ys_[j]=running_pos/tot_true
+            xs_[j]=running_neg/tot_false
+
+        ys.append(ys_)
+        xs.append(xs_)
+
+    return (df.columns[:-1], xs, ys)
+
+
+
+        
+        
+
 
 
 

@@ -1001,50 +1001,47 @@ def get_spec_features(spec_query, precursor_query, spec_target, precursor_target
 
 
 def add_non_spec_features(query_row, target_row):
+    """
+    query prec
+    target prec
+    query ce
+    target ce
+    instrument same
+    ce ratio
+    ce abs
+    prec abs
+    prec ppm
+    """
 
-    outrow = np.zeros(14)
+    outrow = np.zeros(9)
 
     # individual features
-    outrow[0] = int(query_row["isv"])
-    outrow[1] = int(query_row["collision_energy"])
-    outrow[2] = int(target_row["isv"])
-    outrow[3] = int(target_row["collision_energy"])
+    outrow[0] = float(query_row["precursor"])
+    outrow[1] = float(target_row["precursor"])
+    outrow[2] = float(query_row["collision_energy"])
+    outrow[3] = float(target_row["collision_energy"])
 
     # combined features
-    outrow[4] = int(target_row["collision_gas"] == query_row["collision_gas"])
-    outrow[5] = int(target_row["instrument"] == query_row["instrument"])
-    outrow[6] = int(
-        int(target_row["collision_energy"]) == int(query_row["collision_energy"])
-    )
-    outrow[7] = int(int(target_row["isv"]) == int(query_row["isv"]))
-
-    if int(target_row["isv"]) > 0 and int(query_row["isv"]) > 0:
-        outrow[8] = max(
-            int(target_row["isv"]) / int(query_row["isv"]),
-            int(query_row["isv"]) / int(target_row["isv"]),
-        )
-    else:
-        outrow[8] = 0
+    outrow[4] = int(target_row["instrument"] == query_row["instrument"])
 
     if (
         int(target_row["collision_energy"]) > 0
         and int(query_row["collision_energy"]) > 0
     ):
-        outrow[9] = max(
+        outrow[5] = max(
             int(target_row["collision_energy"]) / int(query_row["collision_energy"]),
             int(query_row["collision_energy"]) / int(target_row["collision_energy"]),
         )
     else:
-        outrow[9] = 0
+        outrow[5] = 0
 
-    outrow[10] = abs(int(target_row["isv"]) - int(query_row["isv"]))
-    outrow[11] = abs(
+    outrow[6] = abs(
         int(target_row["collision_energy"]) - int(query_row["collision_energy"])
     )
 
     # precursor features
-    outrow[12] = abs(query_row["precursor"] - target_row["precursor"])
-    outrow[13] = abs(query_row["precursor"] - target_row["precursor"]) / tools.ppm(
+    outrow[7] = abs(query_row["precursor"] - target_row["precursor"])
+    outrow[8] = abs(query_row["precursor"] - target_row["precursor"]) / tools.ppm(
         query_row["precursor"], 1
     )
 
@@ -1238,17 +1235,12 @@ def get_sim_features(query, lib, methods, ms2_da=None, ms2_ppm=None):
 def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_query, max_len):
 
     non_spec_columns = [
+        "precquery",
+        "prectarget",
         "cequery",
-        "isvquery",
         "cetarget",
-        "isvtarget",
-        "cgsame",
         "instsame",
-        "cesame",
-        "isvsame",
-        "isvratio",
         "ceratio",
-        "isvabs",
         "ceabs",
         "prec_abs_dif",
         "prec_ppm_dif",
@@ -1264,6 +1256,11 @@ def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_qu
             abs(query_df.iloc[i]["precursor"] - target_df["precursor"])
             < tools.ppm(query_df.iloc[i]["precursor"], precursor_thresh)
         ]
+
+        #catch case where there are no precursor matches
+        if within_range.shape[0]==0:
+            continue
+
         within_range = within_range.sample(frac=1)[:max_rows_per_query]
 
         within_range.reset_index(inplace=True)
@@ -1276,35 +1273,30 @@ def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_qu
 
         if out is None:
             out = within_range.apply(
-                lambda x: add_non_spec_features(target_df.iloc[i], x),
+                lambda x: add_non_spec_features(query_df.iloc[i], x),
                 axis=1,
                 result_type="expand",
             )
             out.columns = non_spec_columns
 
-            out["query_prec"] = query_df.iloc[i]["precursor"]
-            out["target_prec"] = within_range["precursor"].tolist()
             out["query"] = [query_df.iloc[i]["spectrum"] for x in range(len(out))]
-
             out["target"] = within_range["spectrum"].tolist()
-            out["match"] = [
-                query_df.iloc[i]["inchi_base"] == within_range.iloc[x]["inchi_base"]
-                for x in range(len(within_range))
-            ]
+            out["match"] = (
+                query_df.iloc[i]["inchi_base"] == within_range["inchi_base"]
+            )
 
         else:
             temp = within_range.apply(
-                lambda x: add_non_spec_features(target_df.iloc[i], x),
+                lambda x: add_non_spec_features(query_df.iloc[i], x),
                 axis=1,
                 result_type="expand",
             )
-
+            
             temp.columns = non_spec_columns
+            
 
             temp["query"] = [query_df.iloc[i]["spectrum"] for x in range(len(temp))]
-            temp["query_prec"] = query_df.iloc[i]["precursor"]
             temp["target"] = within_range["spectrum"]
-            temp["target_prec"] = within_range["precursor"]
             temp["match"] = (
                 query_df.iloc[i]["inchi_base"] == within_range["inchi_base"]
             )
@@ -1761,7 +1753,7 @@ def create_model_dataset(
     # create initial value spec columns
     init_spec_df = matches_df.apply(
         lambda x: get_spec_features(
-            x["query"], x["query_prec"], x["target"], x["target_prec"]
+            x["query"], x["precquery"], x["target"], x["prectarget"]
         ),
         axis=1,
         result_type="expand",
@@ -1796,9 +1788,9 @@ def create_model_dataset(
                 cleaned_df = matches_df.apply(
                     lambda x: clean_and_spec_features(
                         x["query"],
-                        x["query_prec"],
+                        x["precquery"],
                         x["target"],
-                        x["target_prec"],
+                        x["prectarget"],
                         noise_thresh=i,
                         centroid_thresh=centroid_tolerance_vals[k],
                         power=j,
@@ -1808,7 +1800,7 @@ def create_model_dataset(
                 )
 
                 cleaned_df.columns = (
-                    spec_columns_ + spec_change_columns_ + ["query", "target"]
+                    spec_columns_  + ["query", "target"]
                 )
 
                 for x in range(len(cleaned_df)):
@@ -1838,6 +1830,8 @@ def create_model_dataset(
                     sim_df.columns = sim_columns_
 
                 else:
+
+                    print(f'yool: {sim_methods}')
                     sim_df = cleaned_df.apply(
                         lambda x: get_sim_features(
                             x["query"],

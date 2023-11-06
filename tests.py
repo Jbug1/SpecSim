@@ -4,6 +4,7 @@ import numpy as np
 import time
 import pandas as pd
 from sklearn.metrics import roc_auc_score as auc
+import datasetBuilder
 
 
 def best_model_select(models, train, val, test):
@@ -47,19 +48,16 @@ def best_models_by_subset(cols, train_sizes, models, train, val, test):
 
     return res_dict
 
-def create_variable_comparisons(noise_threshes, centroid_threshes, centroid_types, powers, sim_methods, matches, outfolder):
-
-    #matches = datasetBuilder.create_matches_df(target,i,max_matches,size)
-    filepath = f'{outfolder}/matches_{i}_ppm.csv'
+def create_variable_comparisons(noise_threshes, centroid_threshes, centroid_types, powers, sim_methods, matches, outpath):
 
     for j in noise_threshes:
         for k in range(len(centroid_threshes)):
             for l in powers:
 
                 cleaned = matches.apply(lambda x: datasetBuilder.clean_and_spec_features(x['query'],
-                                                                                            x['query_prec'],
+                                                                                            x['precquery'],
                                                                                             x['target'],
-                                                                                            x['target_prec'],
+                                                                                            x['prectarget'],
                                                                                             noise_thresh=j,
                                                                                             centroid_thresh = centroid_threshes[k],
                                                                                             centroid_type=centroid_types[k],
@@ -73,10 +71,11 @@ def create_variable_comparisons(noise_threshes, centroid_threshes, centroid_type
                 cleaned = cleaned.iloc[:,-2:]
                 cleaned.columns = ['query','library']
                                                                             
-                aucs = tests.run_metrics_models_auc(sim_methods,[],cleaned, tol_thresh = centroid_threshes[k], tol_type=centroid_types[k])
+                aucs = run_metrics_models_auc(sim_methods,[],cleaned, tol_thresh = centroid_threshes[k], tol_type=centroid_types[k])
                 aucs = auc_to_df(aucs, list(matches.iloc[:,-1]))
                 aucs['clean_specs'] =  f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}'
-                aucs.to_csv(filepath, mode='a', header=False)
+
+                aucs.to_csv(outpath, mode='a', header=False)
 
 
 def run_metrics_models_auc(metrics, models, test, tol_thresh, tol_type):
@@ -436,3 +435,30 @@ def run_comparisons_with_noise(
         print("*" * 20)
         print(f"Ran on decoy {i}")
         print("*" * 20)
+
+
+def auc_to_df(aucs, trues):
+
+    mets =set()
+    for i in aucs.iloc[0]:
+        mets.add(i)
+
+    mets=list(mets)
+    outdict=dict()
+    outdict['metric']=list()
+    outdict['auc']=list()
+
+    for metric in mets:
+        temp = list()
+        for i in range(len(aucs)):
+
+            temp.append(aucs.iloc[i][metric])
+
+        try:
+            outdict['auc'].append(auc(trues, temp))
+            outdict['metric'].append(metric)
+        except:
+            print(f'error on {metric}')
+            
+
+    return pd.DataFrame(outdict)

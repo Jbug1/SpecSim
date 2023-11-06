@@ -15,34 +15,43 @@ def fig1a(dir, matches_dir):
 
     for i in os.listdir(dir):
 
-        window = i.split('_')[1].split('.')[0]
-        res=pd.read_csv(f'dir/{i}')
-        res.sort_values(by='AUROC')
-        top=res.iloc[0]['metric']
+        window = i.split('_')[0]
+        res=pd.read_csv(f'{dir}/{i}', header=None)
+        res.sort_values(by=2, inplace=True)
+
 
         #get the parameters for top scoring metric
-        name, noise, power, cent, cent_type = top.split('_')
-        matches = pd.read_csv(f'{matches_dir}/{window}_ppm.csv')
+        name=res.iloc[0][1]
+        noise, cent, cent_type, power = res.iloc[0][3].split('_')
+        noise=float(noise)
+        cent=float(cent)
+        power=float(power)
+
+        matches = pd.read_pickle(f'{matches_dir}/matches_{window}_ppm.pkl')
+
+        print(f'{name} {noise} {cent} {power}')
+        
 
         #get the curves for the 'traditional metrics'
         orig_res = datasetBuilder.create_model_dataset(matches,
                                                     sim_methods = ['cosine','entropy','reverse_dot_product'],
                                                     )
         #only maintain similarity columns and match
-        orig_res = origs.iloc[:,16:]
+        orig_res = orig_res.iloc[:,16:]
 
         #get the scores for the top scoring result
         top_res =  datasetBuilder.create_model_dataset(matches,
                                                     sim_methods = [name],
-                                                    noise_threshes=noise,
+                                                    noise_threshes=[noise],
                                                     centroid_tolerance_vals=[cent],
                                                     centroid_tolerance_types=[cent_type],
                                                     powers=[power]
                                                     )   
-        #we only want similarity scores column
-        top_res=top_res.iloc[:,16:17]
-
-        orig_res=pd.concat((top_res, orig_res), axis=1)
+        #we only want similarity scores/match column
+        top_res=top_res.iloc[:,-2:]
+        print(f'oieruwo: {top_res.columns}')
+        
+        orig_res=pd.concat((orig_res.iloc[:,:-1],top_res), axis=1)
 
         #execute function to get plot data
         names, xs, ys = plot1a_data(orig_res)
@@ -63,47 +72,35 @@ def plot1a_data(df):
     xs=list()
     ys=list()
 
-    tot_true = np.sum(df['matches'])
+    print(f'coluns: {df.columns}')
+    tot_true = np.sum(df['match'])
     tot_false = len(df)-tot_true
-    for i in range(df.shape[1]-1):
+    for i in [-4,-3,-2,-1]:
 
-        df.sort_values(by=i, inplace=True)
+        df.sort_values(by=df.columns[i], inplace=True)
         
 
         running_pos=0
         running_neg=0
 
         ys_ = np.zeros(len(df))
-        xs=np.zeros(len(df))
+        xs_ = np.zeros(len(df))
+        
         for j in range(len(df)):
             
-            if df.iloc[j]['matches']==True:
+            if df.iloc[j]['match']==True:
                 running_pos+=1
 
             else:
                 running_neg+=1
 
-            ys_[j]=running_pos/tot_true
-            xs_[j]=running_neg/tot_false
+            ys_[j]=1- (running_pos/tot_true) #1- FNR
+            xs_[j]=1- (running_neg/tot_false) #1-TNR
 
         ys.append(ys_)
         xs.append(xs_)
 
     return (df.columns[:-1], xs, ys)
-
-
-
-        
-        
-
-
-
-
-
-
-
-
-
 
 def add_evals_to_df(dataframe):
     """

@@ -1232,7 +1232,7 @@ def get_sim_features(query, lib, methods, ms2_da=None, ms2_ppm=None):
     )
     return [sims[i] for i in methods]
 
-def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_query, max_len):
+def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_query, max_len, adduct_match):
 
     non_spec_columns = [
         "precquery",
@@ -1252,10 +1252,17 @@ def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_qu
 
     for i in range(len(query_df)):
 
-        within_range = target_df[
-            abs(query_df.iloc[i]["precursor"] - target_df["precursor"])
-            < tools.ppm(query_df.iloc[i]["precursor"], precursor_thresh)
-        ]
+        if adduct_match:
+            within_range = target_df[
+                (abs(query_df.iloc[i]["precursor"] - target_df["precursor"])
+                < tools.ppm(query_df.iloc[i]["precursor"], precursor_thresh)) & (query_df.iloc[i]["precursor_type"]==target_df["precursor_type"])
+            ]
+
+        else:
+            within_range = target_df[
+                (abs(query_df.iloc[i]["precursor"] - target_df["precursor"])
+                < tools.ppm(query_df.iloc[i]["precursor"], precursor_thresh)) & (query_df.iloc[i]["mode"]==target_df["mode"])
+            ]
 
         #catch case where there are no precursor matches
         if within_range.shape[0]==0:
@@ -1831,7 +1838,6 @@ def create_model_dataset(
 
                 else:
 
-                    print(f'yool: {sim_methods}')
                     sim_df = cleaned_df.apply(
                         lambda x: get_sim_features(
                             x["query"],

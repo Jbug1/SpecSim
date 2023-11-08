@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 from sklearn.metrics import auc
 import datasetBuilder
+import tools
 
 ########Figures Here######
 def fig1a(dir, matches_dir):
@@ -17,20 +18,26 @@ def fig1a(dir, matches_dir):
 
         window = i.split('_')[0]
         res=pd.read_csv(f'{dir}/{i}', header=None)
-        res.sort_values(by=2, inplace=True)
+        res.sort_values(by=2, inplace=True, ascending=False)
 
+        print(f'Top Metrics for {i} by AUC')
+        print(res.iloc[:10])
+        print('\n')
 
         #get the parameters for top scoring metric
         name=res.iloc[0][1]
         noise, cent, cent_type, power = res.iloc[0][3].split('_')
         noise=float(noise)
         cent=float(cent)
-        power=float(power)
+
+        try:
+            power=float(power)
+        except:
+            pass
 
         matches = pd.read_pickle(f'{matches_dir}/matches_{window}_ppm.pkl')
 
-        print(f'{name} {noise} {cent} {power}')
-        
+        metrics = ['cosine','entropy','reverse_dot_product']+[name]
 
         #get the curves for the 'traditional metrics'
         orig_res = datasetBuilder.create_model_dataset(matches,
@@ -49,43 +56,112 @@ def fig1a(dir, matches_dir):
                                                     )   
         #we only want similarity scores/match column
         top_res=top_res.iloc[:,-2:]
-        print(f'oieruwo: {top_res.columns}')
         
         orig_res=pd.concat((orig_res.iloc[:,:-1],top_res), axis=1)
 
         #execute function to get plot data
-        names, xs, ys = plot1a_data(orig_res)
+        names, xs, ys = fig1a_data(orig_res)
 
         for i in range(len(metrics)):
             plt.plot(xs[i], ys[i], label=metrics[i])
 
-        plt.xlabel = 'FPR'
-        plt.ylabel = 'TPR'
-        plt.title = 'ROC Curves for Selected Metrics'
+        plt.xlabel('FPR')
+        plt.ylabel('TPR')
+        plt.title(f'ROC Curves for Selected Metrics: {i}')
+        plt.legend()
         plt.show()
 
+def fig1b(dir, ppm_windows):
+    """Get top metric for each ppm window seeting by file"""
 
-def plot1a_data(df):
+    for i in ppm_windows:
+
+        res=dict()
+        positions = dict()
+
+        #keep track of total number of directories tested
+        tots=0
+        for j in os.listdir(dir):
+
+            #catch weird other folders
+            if tools.is_digit(j):
+                tots+=1
+
+                #read in metric scores, sort by AUROC
+                mets = pd.read_csv(f'{dir}/{j}/{i}_ppm.csv', header=None)
+                mets.sort_values(by=2, ascending=False, inplace=True)
+                #print(mets.head())
+
+                #grab the first value of each metric, disregarding cleaning params
+                mets=mets.iloc[np.unique(mets[1], return_index=True)[1]]
+             
+                #sort to order by auroc again
+                mets.sort_values(by=2, ascending=False, inplace=True)
+                #print(mets.head())
+                
+                #note the top metric
+                if mets.iloc[0,1] in res:
+                    res[mets.iloc[0,1]]+=1
+                else:
+                    res[mets.iloc[0,1]]=1
+
+                #note the rank of each metric
+                for _ in range(len(mets)):
+
+                    if mets.iloc[_,1] in positions:
+                        positions[mets.iloc[_,1]].append(_+1)
+                    else:
+                        positions[mets.iloc[_,1]] = [_+1]
+
+        #transform to % of time this metric is top
+        for key, val in res.items():
+
+            res[key]=val/tots
+
+        #transform to mean ranking for this metric
+        for key, val in positions.items():
+
+            positions[key]=np.mean(val)
+
+        ranks = pd.DataFrame([res]).transpose().reset_index()
+        
+        ranks.sort_values(by=0, inplace=True)
+        top=np.array(ranks.iloc[:10]['index'].tolist())
+
+        means = pd.DataFrame([positions]).transpose().reset_index()
+        means=means[np.isin(means['index'],top)]
+        
+        print(f'Top Ranks and Means for {i} PPM')
+        print('Proportion of Time This Metric is Top')
+        print(ranks.head(10))
+        print('\n')
+
+        print('Mean Ranking By Metric')
+        print(means)
+        print('\n')
+
+
+
+
+def fig1a_data(df):
 
     "plot ROC curves for all metrics given"
 
     xs=list()
     ys=list()
 
-    print(f'coluns: {df.columns}')
     tot_true = np.sum(df['match'])
     tot_false = len(df)-tot_true
-    for i in [-4,-3,-2,-1]:
+    for i in [-5,-4,-3,-2]:
 
         df.sort_values(by=df.columns[i], inplace=True)
-        
 
         running_pos=0
         running_neg=0
 
         ys_ = np.zeros(len(df))
         xs_ = np.zeros(len(df))
-        
+
         for j in range(len(df)):
             
             if df.iloc[j]['match']==True:
@@ -212,8 +288,6 @@ def plot_all_curves(dataframe, dataframe_name, curve_type="roc", highlights=[]):
     function to recreate fig
     """
 
-    # highlights = highlights + ['entropy', 'unweighted_entropy', 'cosine']
-    print(highlights)
 
     if curve_type.lower() not in ["fdr", "roc", "prc", "npv_ppv"]:
         raise ValueError("criterion is not roc or prc or fdr or npv_ppv")

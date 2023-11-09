@@ -7,6 +7,32 @@ import datasetBuilder
 import tools
 
 ########Figures Here######
+
+def fig2a(res_dict, indices, test):
+
+    xs =list()
+    ys=list()
+    labels=list()
+
+    for key, val in indices.keys():
+        
+        preds = res_dict[key][0].predict_proba(test.iloc[:,val])
+        xs_, ys_ = fig2a_data(preds, test.iloc[:,-1].to_numpy)
+        xs.append(xs_)
+        ys.apend(ys_)
+        labels.append(f'{key}: {res_dict[key][1]}')
+
+    for i in range(len(xs)):
+
+        plt.plot(xs[i],ys[i],label=labels[i])
+
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
+    plt.title('ROC Curves by Feature Subset')
+    plt.legend()
+    plt.show()
+
+
 def fig1a(dir, matches_dir):
     """
     This directory will have n csvs that state overall metric performance on full sample
@@ -141,7 +167,36 @@ def fig1b(dir, ppm_windows):
         print('\n')
 
 
+def fig2a_data(preds, trues):
+    
+    #get total true and false
+    tot_true = np.sum(trues)
+    tot_false = len(trues)-tot_true
 
+    #sort results by predicted sim val
+    sort_order = np.argsort(preds)
+    preds=preds[sort_order]
+    trues = trues[sort_order]
+
+    running_pos=0
+    running_neg=0
+
+    ys_ = np.zeros(len(trues))
+    xs_ = np.zeros(len(trues))
+
+    for j in range(len(trues)):
+        
+        if trues[i]==True:
+            running_pos+=1
+
+        else:
+            running_neg+=1
+
+        ys_[j]=1- (running_pos/tot_true) #1- FNR
+        xs_[j]=1- (running_neg/tot_false) #1-TNR
+
+
+    return (xs_, ys_)
 
 def fig1a_data(df):
 

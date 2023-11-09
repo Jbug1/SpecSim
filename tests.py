@@ -5,34 +5,42 @@ import time
 import pandas as pd
 from sklearn.metrics import roc_auc_score as auc
 import datasetBuilder
+import copy
 
+
+def zero_one_loss(preds, true):
+    
+    preds=np.array(preds).squeeze()
+    true=np.array(true).squeeze()
+    
+    return sum(abs(true-preds))/len(true)
 
 def best_model_select(models, train, val, test):
     
-    model_errs = np.zeros(len(models))
+    model_aucs = np.zeros(len(models))
     train['match']=train['match'].astype(int)
     val['match']=val['match'].astype(int)
     test['match']=test['match'].astype(int)
 
     best_model = None
-    best_error=np.inf
+    best_auc=0
 
     i=0
     for model in models:
 
         clf = sklearn.base.clone(model)
         clf.fit(train.iloc[:,:-1], train.iloc[:,-1])
-        val_error = zero_one_loss(clf.predict(val.iloc[:,:-1]),val.iloc[:,-1:].to_numpy())
+        val_auc = auc(clf.predict(val.iloc[:,:-1]),val.iloc[:,-1:].to_numpy())
 
-        if val_error < best_error:
+        if val_auc > best_auc:
             best_model=copy.deepcopy(clf)
-            best_error = val_error
+            best_auc = val_auc
 
         del(clf)
-        model_errs[i]=val_error
+        model_aucs[i]=val_auc
         i+=1
 
-    return str(best_model), zero_one_loss(best_model.predict(test.iloc[:,:-1]),test.iloc[:,-1:].to_numpy()), model_errs
+    return best_model, auc(best_model.predict_proba(test.iloc[:,:-1]),test.iloc[:,-1:].to_numpy()), model_aucs
 
 def best_models_by_subset(cols, train_sizes, models, train, val, test):
 

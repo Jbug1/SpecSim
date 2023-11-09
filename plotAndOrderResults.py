@@ -8,7 +8,35 @@ import tools
 
 ########Figures Here######
 
-def fig2a(res_dict, indices, test):
+def fig4(input, metrics, quant_variables, quantile_num, output_path):
+
+    #create subdirectories by quant variable that has quantile pkls
+    tests.break_figure_into_quantiles(input, quant_variables, quantile_num, output_path)
+
+    for i in os.listdir(output_path):
+
+        if not tools.is_digit(i):
+            continue
+
+        aucs = tests.aucs_by_quantile(f'{output_path}\{i}', metrics)
+
+        plot4_sub(aucs, i)
+
+def plot4_sub(quantile_aucs, title):
+
+    for key, val in quantile_aucs:
+
+        for i in range(len(val)):
+            
+            plt.scatter(key, val[i][1], label=val[i][0])
+
+    plt.title(title)
+    plt.xlabel('Quantile')
+    plt.ylabel('AUC')
+    plt.legend()
+    plt.show()
+
+def fig3(res_dict, indices, test):
 
     xs =list()
     ys=list()
@@ -33,7 +61,7 @@ def fig2a(res_dict, indices, test):
     plt.show()
 
 
-def fig1a(dir, matches_dir):
+def fig1(dir, matches_dir):
     """
     This directory will have n csvs that state overall metric performance on full sample
 
@@ -86,10 +114,11 @@ def fig1a(dir, matches_dir):
         orig_res=pd.concat((orig_res.iloc[:,:-1],top_res), axis=1)
 
         #execute function to get plot data
-        names, xs, ys = fig1a_data(orig_res)
+        names, xs, ys = tests.roc_curves_select_metrics(orig_res)
 
         for i in range(len(metrics)):
-            plt.plot(xs[i], ys[i], label=metrics[i])
+            auc_score = auc(orig_res.iloc[i].to_numpy(),orig_res['match'].to_numpy())
+            plt.plot(xs[i], ys[i], label=f'{metrics[i]}: {round(auc_score,2)}')
 
         plt.xlabel('FPR')
         plt.ylabel('TPR')
@@ -97,7 +126,9 @@ def fig1a(dir, matches_dir):
         plt.legend()
         plt.show()
 
-def fig1b(dir, ppm_windows):
+
+
+def fig2(dir, ppm_windows):
     """Get top metric for each ppm window seeting by file"""
 
     for i in ppm_windows:
@@ -151,15 +182,16 @@ def fig1b(dir, ppm_windows):
 
         ranks = pd.DataFrame([res]).transpose().reset_index()
         
-        ranks.sort_values(by=0, inplace=True)
-        top=np.array(ranks.iloc[:10]['index'].tolist())
+        ranks.sort_values(by=0, inplace=True, ascending=False)
+        top=np.array(ranks.iloc[:20]['index'].tolist())
 
         means = pd.DataFrame([positions]).transpose().reset_index()
         means=means[np.isin(means['index'],top)]
+        means.sort_values(by=0, inplace=True)
         
         print(f'Top Ranks and Means for {i} PPM')
         print('Proportion of Time This Metric is Top')
-        print(ranks.head(10))
+        print(ranks.head(20))
         print('\n')
 
         print('Mean Ranking By Metric')
@@ -167,71 +199,6 @@ def fig1b(dir, ppm_windows):
         print('\n')
 
 
-def fig2a_data(preds, trues):
-    
-    #get total true and false
-    tot_true = np.sum(trues)
-    tot_false = len(trues)-tot_true
-
-    #sort results by predicted sim val
-    sort_order = np.argsort(preds)
-    preds=preds[sort_order]
-    trues = trues[sort_order]
-
-    running_pos=0
-    running_neg=0
-
-    ys_ = np.zeros(len(trues))
-    xs_ = np.zeros(len(trues))
-
-    for j in range(len(trues)):
-        
-        if trues[i]==True:
-            running_pos+=1
-
-        else:
-            running_neg+=1
-
-        ys_[j]=1- (running_pos/tot_true) #1- FNR
-        xs_[j]=1- (running_neg/tot_false) #1-TNR
-
-
-    return (xs_, ys_)
-
-def fig1a_data(df):
-
-    "plot ROC curves for all metrics given"
-
-    xs=list()
-    ys=list()
-
-    tot_true = np.sum(df['match'])
-    tot_false = len(df)-tot_true
-    for i in [-5,-4,-3,-2]:
-
-        df.sort_values(by=df.columns[i], inplace=True)
-
-        running_pos=0
-        running_neg=0
-
-        ys_ = np.zeros(len(df))
-        xs_ = np.zeros(len(df))
-
-        for j in range(len(df)):
-            
-            if df.iloc[j]['match']==True:
-                running_pos+=1
-
-            else:
-                running_neg+=1
-
-            ys_[j]=1- (running_pos/tot_true) #1- FNR
-            xs_[j]=1- (running_neg/tot_false) #1-TNR
-
-        ys.append(ys_)
-        xs.append(xs_)
-
-    return (df.columns[:-1], xs, ys)
 
 def add_evals_to_df(dataframe):
     """

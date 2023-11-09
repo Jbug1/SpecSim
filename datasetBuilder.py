@@ -1902,16 +1902,6 @@ def generate_keep_indices(noise_threshes, centroid_tolerance_vals, powers, spec_
                             keep_indices.append(ind)
                     ind+=1
 
-                for l in spec_change_features:
-                    if any_:
-                        if True in [i,j,k,l]:
-                            keep_indices.append(ind)
-                    else:
-                        if i==j==k==l==True:
-                            keep_indices.append(ind)
-                    ind+=1
-
-
                 for l in sim_methods:
                     
                     if any_:

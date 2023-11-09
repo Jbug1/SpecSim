@@ -8,6 +8,108 @@ import datasetBuilder
 import copy
 
 
+def roc_curves_models(preds, trues):
+    
+    #get total true and false
+    tot_true = np.sum(trues)
+    tot_false = len(trues)-tot_true
+
+    #sort results by predicted sim val
+    sort_order = np.argsort(preds)
+    preds=preds[sort_order]
+    trues = trues[sort_order]
+
+    running_pos=0
+    running_neg=0
+
+    ys_ = np.zeros(len(trues))
+    xs_ = np.zeros(len(trues))
+
+    for j in range(len(trues)):
+        
+        if trues[j]==True:
+            running_pos+=1
+
+        else:
+            running_neg+=1
+
+        ys_[j]=1- (running_pos/tot_true) #1- FNR
+        xs_[j]=1- (running_neg/tot_false) #1-TNR
+
+
+    return (xs_, ys_)
+
+def roc_curves_select_metrics(df):
+
+    "plot ROC curves for all metrics given"
+
+    xs=list()
+    ys=list()
+
+    tot_true = np.sum(df['match'])
+    tot_false = len(df)-tot_true
+    for i in [-5,-4,-3,-2]:
+
+        df.sort_values(by=df.columns[i], inplace=True)
+
+        running_pos=0
+        running_neg=0
+
+        ys_ = np.zeros(len(df))
+        xs_ = np.zeros(len(df))
+
+        for j in range(len(df)):
+            
+            if df.iloc[j]['match']==True:
+                running_pos+=1
+
+            else:
+                running_neg+=1
+
+            ys_[j]=1- (running_pos/tot_true) #1- FNR
+            xs_[j]=1- (running_neg/tot_false) #1-TNR
+
+        ys.append(ys_)
+        xs.append(xs_)
+
+    return (df.columns[:-1], xs, ys)
+
+
+def break_data_into_quantiles(input, col_names, quantile_num, output_path):
+
+    for i in col_names:
+
+        os.mkdir(f'{output_path}\{i}')
+
+        input=input.sort_values(by=i, inplace=True)
+
+        chunk_size = int(len(input)/quantile_num)
+        for j in range(quantile_num):
+            
+            quant_data = input.iloc[j*chunk_size:(j+1)*chunk_size]
+            quant_data.to_pickle(f'{output_path}\{i}\j.pkl')
+
+def aucs_by_quantile(input_folder,metrics):
+
+    quantile_aucs=dict()
+    for i in os.listdir(input_folder):
+
+        quant=i.split('.')[0]
+
+        try:
+            quant=int(quant)
+        except:
+            continue
+
+        quantile_aucs[quant]=list()
+
+        quantile_res = pd.read_pickle(f'{input_folder}\{i}')
+
+        for metric in metrics:
+            quantile_aucs[quant].append((metric, auc(quantile_res[metric].to_numpy(), quantile_res['match'].to_numpy())))
+
+    return quantile_aucs
+
 def zero_one_loss(preds, true):
     
     preds=np.array(preds).squeeze()

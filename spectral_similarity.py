@@ -10,6 +10,7 @@ methods_range = {
     "manhattan_jonah": [0,1],
     "entropy": [0, np.log(4)],
     "dot_product": [0,1],
+    "reverse_dot_product": [0,1],
     "cosine": [0,1],
     "absolute_value": [0, 2],
     "bhattacharya_1": [0, np.arccos(0) ** 2],

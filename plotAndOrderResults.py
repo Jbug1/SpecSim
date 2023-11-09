@@ -5,24 +5,22 @@ import os
 from sklearn.metrics import auc
 import datasetBuilder
 import tools
+import tests
 
 ########Figures Here######
 
-def fig4(input, metrics, quant_variables, quantile_num, output_path):
+def fig3(input, metrics, quant_variables, quantile_num, output_path):
 
     #create subdirectories by quant variable that has quantile pkls
     tests.break_figure_into_quantiles(input, quant_variables, quantile_num, output_path)
 
-    for i in os.listdir(output_path):
+    for i in quant_variables:
 
-        if not tools.is_digit(i):
-            continue
+        aucs = tests.aucs_by_quantile(f'{output_path}/{i}', metrics)
 
-        aucs = tests.aucs_by_quantile(f'{output_path}\{i}', metrics)
+        plot3_sub(aucs, i, output_path)
 
-        plot4_sub(aucs, i)
-
-def plot4_sub(quantile_aucs, title):
+def plot3_sub(quantile_aucs, title, outpath):
 
     for key, val in quantile_aucs:
 
@@ -35,8 +33,9 @@ def plot4_sub(quantile_aucs, title):
     plt.ylabel('AUC')
     plt.legend()
     plt.show()
+    plt.savefig(f'{outpath}/{i}/figure.png')
 
-def fig3(res_dict, indices, test):
+def fig4(res_dict, indices, test):
 
     xs =list()
     ys=list()
@@ -45,7 +44,7 @@ def fig3(res_dict, indices, test):
     for key, val in indices.keys():
         
         preds = res_dict[key][0].predict_proba(test.iloc[:,val])
-        xs_, ys_ = fig2a_data(preds, test.iloc[:,-1].to_numpy)
+        xs_, ys_ = tests.roc_curves_models(preds, test.iloc[:,-1].to_numpy)
         xs.append(xs_)
         ys.apend(ys_)
         labels.append(f'{key}: {res_dict[key][1]}')

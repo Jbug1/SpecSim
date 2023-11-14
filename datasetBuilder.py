@@ -1250,7 +1250,12 @@ def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_qu
     target_df = target_df.sample(frac=1)
     printy = 1e5
 
+    seen=0
+    cores_set=set()
     for i in range(len(query_df)):
+        
+        seen+=1
+        cores_set.add(query_df.iloc[i]['inchi_base'])
 
         if adduct_match:
             within_range = target_df[
@@ -1312,6 +1317,8 @@ def create_matches_df_new(query_df, target_df, precursor_thresh, max_rows_per_qu
         if len(out) >= max_len:
             return out
 
+    print(f'total number of query spectra considered: {seen}')
+    print(f'total inchicores seen: {len(cores_set)}')
     return out
 
 def create_matches_df(target_df, precursor_thresh, max_rows_per_query, max_len):

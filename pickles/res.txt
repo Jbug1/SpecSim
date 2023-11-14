@@ -1,0 +1,3 @@
+logistic regression test error: 0.041666666666666664
+random forest test error: 0.010416666666666666
+extra trees test error: 0.020833333333333332

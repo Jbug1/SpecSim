@@ -212,6 +212,7 @@ def run_metrics_models_auc(metrics, models, test, tol_thresh, tol_type):
             metrics.append('max_'+i)
             # metrics.append('min_'+i)
             # metrics.append('ave_'+i)
+            metrics.append('reverse_dot_product')
 
         if tol_type == 'da':
             sims = test.apply(lambda x: spectral_similarity.multiple_similarity(x['query'],x['library'],methods =metrics, ms2_da = tol_thresh), axis=1)

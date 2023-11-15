@@ -1885,7 +1885,7 @@ def create_model_dataset(
     out_df["match"] = matches_df["match"]
     return out_df
 
-def generate_keep_indices(noise_threshes, centroid_tolerance_vals, powers, spec_features, spec_change_features, sim_methods, any_=False, nonspecs=False, init_spec=False):
+def generate_keep_indices(noise_threshes, centroid_tolerance_vals, powers, spec_features, sim_methods, any_=False, nonspecs=False, init_spec=False):
 
     if nonspecs:
         keep_indices= list(range(9))
@@ -1893,9 +1893,9 @@ def generate_keep_indices(noise_threshes, centroid_tolerance_vals, powers, spec_
         keep_indices=list()
 
     if init_spec:
-        keep_indices+=list(range(9,19))
+        keep_indices+=list(range(9,17))
 
-    ind=19
+    ind=17
     for i in noise_threshes:
         for j in centroid_tolerance_vals:
             for k in powers:

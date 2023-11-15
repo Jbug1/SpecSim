@@ -12,28 +12,40 @@ import tests
 def fig3(input, metrics, quant_variables, quantile_num, output_path):
 
     #create subdirectories by quant variable that has quantile pkls
-    tests.break_figure_into_quantiles(input, quant_variables, quantile_num, output_path)
+    tests.break_data_into_quantiles(input, quant_variables, quantile_num, output_path)
 
     for i in quant_variables:
 
         aucs = tests.aucs_by_quantile(f'{output_path}/{i}', metrics)
 
-        plot3_sub(aucs, i, output_path)
+        plot3_sub(aucs, i, f'{output_path}/{i}')
 
 def plot3_sub(quantile_aucs, title, outpath):
 
-    for key, val in quantile_aucs:
+    #reorganize the info such that we have a dict
+    #with key: metric and x and y scatter
+    final_dict = dict()
+    for key, val in quantile_aucs.items():
 
         for i in range(len(val)):
             
-            plt.scatter(key, val[i][1], label=val[i][0])
+            if val[i][0].split('_')[0] in final_dict:
+                final_dict[val[i][0].split('_')[0]][0].append(key)
+                final_dict[val[i][0].split('_')[0]][1].append(val[i][1])
+            else:
+                final_dict[val[i][0].split('_')[0]]= ([key], [val[i][1]])
 
+    for key, val in final_dict.items():
+
+        plt.scatter(val[0], val[1], label=key)
+    
     plt.title(title)
     plt.xlabel('Quantile')
     plt.ylabel('AUC')
     plt.legend()
+
     plt.show()
-    plt.savefig(f'{outpath}/{i}/figure.png')
+    plt.savefig(f'{outpath}/figure.png')
 
 def fig4(res_dict, indices, test):
 
@@ -115,8 +127,9 @@ def fig1(dir, matches_dir):
         #execute function to get plot data
         names, xs, ys = tests.roc_curves_select_metrics(orig_res)
 
-        for i in range(len(metrics)):
-            auc_score = auc(orig_res.iloc[i].to_numpy(),orig_res['match'].to_numpy())
+        for i in range(len(names)):
+            orig_res.sort_values(by=names[i], inplace=True)
+            auc_score = auc(orig_res[names[i]].to_numpy(),orig_res['match'].to_numpy())
             plt.plot(xs[i], ys[i], label=f'{metrics[i]}: {round(auc_score,2)}')
 
         plt.xlabel('FPR')
@@ -132,8 +145,13 @@ def fig2(dir, ppm_windows):
 
     for i in ppm_windows:
 
+        #set collector vars for metrics
         res=dict()
         positions = dict()
+
+        #set collector vars for vectorization settings
+        res_vec=dict()
+        positions_vec=dict()
 
         #keep track of total number of directories tested
         tots=0
@@ -146,28 +164,43 @@ def fig2(dir, ppm_windows):
                 #read in metric scores, sort by AUROC
                 mets = pd.read_csv(f'{dir}/{j}/{i}_ppm.csv', header=None)
                 mets.sort_values(by=2, ascending=False, inplace=True)
-                #print(mets.head())
-
+                print(mets.head())
                 #grab the first value of each metric, disregarding cleaning params
-                mets=mets.iloc[np.unique(mets[1], return_index=True)[1]]
+                mets_=mets.iloc[np.unique(mets[1], return_index=True)[1]]
+                vecs= mets.iloc[np.unique(mets[3], return_index=True)[1]]
              
                 #sort to order by auroc again
-                mets.sort_values(by=2, ascending=False, inplace=True)
-                #print(mets.head())
+                mets_.sort_values(by=2, ascending=False, inplace=True)
+                vecs.sort_values(by=2, ascending=False, inplace=True)
                 
                 #note the top metric
-                if mets.iloc[0,1] in res:
-                    res[mets.iloc[0,1]]+=1
+                if mets_.iloc[0,1] in res:
+                    res[mets_.iloc[0,1]]+=1
                 else:
-                    res[mets.iloc[0,1]]=1
+                    res[mets_.iloc[0,1]]=1
 
                 #note the rank of each metric
-                for _ in range(len(mets)):
+                for _ in range(len(mets_)):
 
-                    if mets.iloc[_,1] in positions:
-                        positions[mets.iloc[_,1]].append(_+1)
+                    if mets_.iloc[_,1] in positions:
+                        positions[mets_.iloc[_,1]].append(_+1)
                     else:
-                        positions[mets.iloc[_,1]] = [_+1]
+                        positions[mets_.iloc[_,1]]=[_+1]
+
+
+                #note the top vectorization setting
+                if vecs.iloc[0,3] in res_vec:
+                    res_vec[vecs.iloc[0,3]]+=1
+                else:
+                    res_vec[vecs.iloc[0,3]]=1
+
+                #note the rank of each vectorization setting
+                for _ in range(len(vecs)):
+
+                    if vecs.iloc[_,3] in positions_vec:
+                        positions_vec[vecs.iloc[_,3]].append(_+1)
+                    else:
+                        positions_vec[vecs.iloc[_,3]]=[_+1]
 
         #transform to % of time this metric is top
         for key, val in res.items():
@@ -179,24 +212,49 @@ def fig2(dir, ppm_windows):
 
             positions[key]=np.mean(val)
 
+        #transform to % of time this vec_setting is top
+        for key, val in res_vec.items():
+
+            res_vec[key]=val/tots
+
+        #transform to mean ranking for this vec setting
+        for key, val in positions_vec.items():
+
+            positions_vec[key]=np.mean(val)
+
         ranks = pd.DataFrame([res]).transpose().reset_index()
-        
         ranks.sort_values(by=0, inplace=True, ascending=False)
-        top=np.array(ranks.iloc[:20]['index'].tolist())
+        #top=np.array(ranks.iloc[:20]['index'].tolist())
 
         means = pd.DataFrame([positions]).transpose().reset_index()
-        means=means[np.isin(means['index'],top)]
+        #means=means[np.isin(means['index'],top)]
         means.sort_values(by=0, inplace=True)
-        
-        print(f'Top Ranks and Means for {i} PPM')
+
+        ranks_vec = pd.DataFrame([res_vec]).transpose().reset_index()
+        ranks_vec.sort_values(by=0, inplace=True, ascending=False)
+        #top=np.array(ranks_vec.iloc[:20]['index'].tolist())
+
+        means_vec = pd.DataFrame([positions_vec]).transpose().reset_index()
+        #means=means[np.isin(means['index'],top)]
+        means_vec.sort_values(by=0, inplace=True)
+
+        print(f'Top Ranks and Means for {i} PPM: Metrics, {len(means)} total')
         print('Proportion of Time This Metric is Top')
         print(ranks.head(20))
         print('\n')
 
         print('Mean Ranking By Metric')
-        print(means)
+        print(means.head(20))
         print('\n')
 
+        print(f'Top Ranks and Means for {i} PPM: Vectorization Settings: {len(means_vec)} total')
+        print('Proportion of Time This Vectorization Setting is Top')
+        print(ranks_vec.head(20))
+        print('\n')
+
+        print('Mean Ranking By Vectorization Setting')
+        print(means_vec.head(20))
+        print('\n')
 
 
 def add_evals_to_df(dataframe):

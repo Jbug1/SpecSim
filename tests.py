@@ -6,6 +6,8 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score as auc
 import datasetBuilder
 import copy
+import os
+from sklearn import base
 
 
 def roc_curves_models(preds, trues):
@@ -72,22 +74,22 @@ def roc_curves_select_metrics(df):
         ys.append(ys_)
         xs.append(xs_)
 
-    return (df.columns[:-1], xs, ys)
+    return (np.array(df.columns[[-5,-4,-3,-2]]), xs, ys)
 
 
 def break_data_into_quantiles(input, col_names, quantile_num, output_path):
 
     for i in col_names:
 
-        os.mkdir(f'{output_path}\{i}')
+        os.mkdir(f'{output_path}/{i}')
 
-        input=input.sort_values(by=i, inplace=True)
+        input.sort_values(by=i, inplace=True)
 
         chunk_size = int(len(input)/quantile_num)
         for j in range(quantile_num):
             
             quant_data = input.iloc[j*chunk_size:(j+1)*chunk_size]
-            quant_data.to_pickle(f'{output_path}\{i}\j.pkl')
+            quant_data.to_pickle(f'{output_path}/{i}/{j}.pkl')
 
 def aucs_by_quantile(input_folder,metrics):
 
@@ -103,10 +105,11 @@ def aucs_by_quantile(input_folder,metrics):
 
         quantile_aucs[quant]=list()
 
-        quantile_res = pd.read_pickle(f'{input_folder}\{i}')
+        quantile_res = pd.read_pickle(f'{input_folder}/{i}')
 
         for metric in metrics:
-            quantile_aucs[quant].append((metric, auc(quantile_res[metric].to_numpy(), quantile_res['match'].to_numpy())))
+            quantile_res.sort_values(by=metric, inplace=True)
+            quantile_aucs[quant].append((metric, auc(quantile_res['match'].to_numpy(),quantile_res[metric].to_numpy())))
 
     return quantile_aucs
 
@@ -128,21 +131,26 @@ def best_model_select(models, train, val, test):
     best_auc=0
 
     i=0
+    best_true_ind=0
     for model in models:
 
-        clf = sklearn.base.clone(model)
+        clf = base.clone(model)
         clf.fit(train.iloc[:,:-1], train.iloc[:,-1])
-        val_auc = auc(clf.predict(val.iloc[:,:-1]),val.iloc[:,-1:].to_numpy())
+        true_index = np.where(clf.classes_==1)
+        true_probs = clf.predict_proba(val.iloc[:,:-1])[:,true_index].squeeze()
+        val_auc = auc(val.iloc[:,-1:].to_numpy(),true_probs)
 
         if val_auc > best_auc:
             best_model=copy.deepcopy(clf)
             best_auc = val_auc
+            best_true_ind = true_index
 
         del(clf)
         model_aucs[i]=val_auc
         i+=1
-
-    return best_model, auc(best_model.predict_proba(test.iloc[:,:-1]),test.iloc[:,-1:].to_numpy()), model_aucs
+        
+    true_probs = best_model.predict_proba(test.iloc[:,:-1])[:,true_index].squeeze()
+    return (best_model, auc(test.iloc[:,-1].to_numpy(),true_probs), model_aucs)
 
 def best_models_by_subset(cols, train_sizes, models, train, val, test):
 

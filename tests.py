@@ -29,7 +29,7 @@ def roc_curves_models(preds, trues):
 
     for j in range(len(trues)):
         
-        if trues[j]==True:
+        if trues[j]==1:
             running_pos+=1
 
         else:
@@ -37,8 +37,7 @@ def roc_curves_models(preds, trues):
 
         ys_[j]=1- (running_pos/tot_true) #1- FNR
         xs_[j]=1- (running_neg/tot_false) #1-TNR
-
-
+        
     return (xs_, ys_)
 
 def roc_curves_select_metrics(df):
@@ -136,7 +135,7 @@ def best_model_select(models, train, val, test):
 
         clf = base.clone(model)
         clf.fit(train.iloc[:,:-1], train.iloc[:,-1])
-        true_index = np.where(clf.classes_==1)
+        true_index = np.where(clf.classes_==1)[0][0]
         true_probs = clf.predict_proba(val.iloc[:,:-1])[:,true_index].squeeze()
         val_auc = auc(val.iloc[:,-1:].to_numpy(),true_probs)
 
@@ -149,19 +148,17 @@ def best_model_select(models, train, val, test):
         model_aucs[i]=val_auc
         i+=1
         
-    true_probs = best_model.predict_proba(test.iloc[:,:-1])[:,true_index].squeeze()
+    true_probs = best_model.predict_proba(test.iloc[:,:-1])[:,best_true_ind].squeeze()
     return (best_model, auc(test.iloc[:,-1].to_numpy(),true_probs), model_aucs)
 
 def best_models_by_subset(cols, train_sizes, models, train, val, test):
 
     res_dict=dict()
     for key, value in cols.items():
-        res_dict[key]=list()
 
         for size in train_sizes:
     
-            res_dict[key].append(best_model_select(models, train.iloc[:size,value+[-1]], val.iloc[:,value+[-1]], test.iloc[:,value+[-1]]))
-
+            res_dict[key] = best_model_select(models, train.iloc[:size,value+[-1]], val.iloc[:,value+[-1]], test.iloc[:,value+[-1]])
             print(f'finished {key} for {size}')
 
     return res_dict

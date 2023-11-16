@@ -370,13 +370,19 @@ def weight_intensity(x, power=1):
     """
     Jonah version of weight_intensity function
     """
-    if len(x) == 0 or np.sum(x[:, 1]) == 0:
+    if len(x) < 2 or np.sum(x[:, 1]) == 0:
         return x
 
-    if type(power) == str:
+    if power == 'ent':
         power = scipy.stats.entropy(x[:, 1])
 
-    if power is None:
+    elif power == 'invent':
+        power = 1/scipy.stats.entropy(x[:, 1])
+
+    elif power =='normalent':
+        power = scipy.stats.entropy(x[:, 1])/np.log(len(x))
+
+    elif power =='orig':
         x[:, 1] = _weight_intensity_by_entropy(x[:, 1])
         return x
 

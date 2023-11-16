@@ -1753,16 +1753,6 @@ def create_model_dataset(
         "normalent_target",
         "mass_reduction_target",
     ]
-    # spec_change_columns = [
-    #     "query_ent_change",
-    #     "query_peaks_change",
-    #     "query_normal_ent_change",
-    #     "query_mass_change",
-    #     "target_ent_change",
-    #     "target_peaks_change",
-    #     "target_normal_ent_change",
-    #     "target_mass_change",
-    # ]
 
     # create initial value spec columns
     init_spec_df = matches_df.apply(
@@ -1789,10 +1779,7 @@ def create_model_dataset(
                     for x in spec_columns
                 ]
 
-                # spec_change_columns_ = [
-                #     f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
-                #     for x in spec_change_columns
-                # ]
+
                 sim_columns_ = [
                     f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
                     for x in sim_methods

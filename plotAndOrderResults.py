@@ -2,12 +2,116 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from sklearn.metrics import auc
+from sklearn.metrics import roc_auc_score as auc
 import datasetBuilder
 import tools
 import tests
+import pickle
 
 ########Figures Here######
+def fig4(test_data, res_dict, inds_dict, outpath, ppm_window):
+
+    #get labels
+    labels=test_data['match'].to_numpy()
+    labels = labels.astype(int)
+
+    names=list()
+    test_errors=list()
+    val_errors=list()
+    for key, val in res_dict.items():
+        names.append(key)
+        test_errors.append(round(val[1],2))
+        val_errors.append(round(max(val[2]),2))
+
+    inds = np.argsort(test_errors)[::-1]
+    names=np.array(names)[inds]
+    val_errors=np.array(val_errors)[inds]
+    test_errors=np.array(test_errors)[inds]
+
+    print(f'AUROC by Feature Subset for {ppm_window} ppm:')
+    for i in range(len(names)):
+        print(f'{names[i]}: Validation: {val_errors[i]} Test: {test_errors[i]}')
+
+    for key, val in res_dict.items():
+
+        #first get correct columns
+        pred_cols = test_data.iloc[:,inds_dict[key]]
+
+        true_ind = np.where(val[0].classes_==1)[0][0]
+
+        preds = val[0].predict_proba(pred_cols)
+        preds=preds[:,true_ind]
+        
+        x,y = tests.roc_curves_models(preds, labels)
+        plt.plot(x,y,label = f'{key}: {round(val[1],2)}')
+
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
+    plt.title(f'ROC Test Curves By Feature Subset for {ppm_window} ppm')
+    plt.legend()
+    plt.show()
+
+    plt.savefig(f'{outpath}/{ppm_window}_ppm.png')
+
+
+def fig4b(test_data, inds, outpath, ppm_window, top_n):
+    """
+    top 5 individuals only
+    """
+
+    auc_scores=list()
+    for ind in range(len(inds)):
+
+        test_data.sort_values(by=names[ind], inplace=True)
+        auc_score = auc(test_data['match'].to_numpy(),test_data[names[ind]].to_numpy())
+        auc_scores.append(auc_score)
+
+    #sort all inputs by score
+    sorted_scores = np.argsort(auc_score)
+    auc_scores = auc_scores[sorted_scores][:top_n]
+    inds = inds[sorted_scores][:top_n]
+
+    names, xs, ys = tests.roc_curves_select_metrics(test_data, inds)
+
+    for ind in range(len(xs)):
+        plt.plot(xs[ind], ys[ind], label=f'{names[ind]}: {round(auc_scores[ind],2)}')
+
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
+    plt.title(f'ROC Curves for Selected Metrics: {ppm_window} ppm')
+    plt.legend()
+    plt.show()
+
+    with open(f'{outpath}/plot_info.pkl', 'wb') as handle:
+        pickle.dump((names,auc_scores, xs, ys),handle)
+
+
+def fig5(test_data, res_dict, inds_dict, outpath, ppm_window):
+
+    #update res_dict and then pass to fig4 code
+    for key, val in res_dict.items():
+
+        labels=test_data['match'].to_numpy()
+        labels = labels.astype(int)
+        pred_data = test_data.iloc[:,inds_dict[key]]
+
+        true_ind = np.where(val[0].classes_==1)[0][0]
+        preds = val[0].predict_proba(pred_data)[:,true_ind]
+
+        sort_order = np.argsort(preds)
+        preds = preds[sort_order]
+        labels = labels[sort_order]
+
+        #update with test error on new data
+        res_dict[key] = (res_dict[key][0], auc(labels, preds),res_dict[key][2])
+
+    # save new res dict with proper test error
+    with open (f'{outpath}/res_dict_{ppm_window}_ppm.pkl', 'wb') as handle:
+        pickle.dump(res_dict, handle)
+
+    #run fig4 code to generate plot
+    fig4(test_data, res_dict, inds_dict, outpath, ppm_window)
+
 
 def fig3(input, metrics, quant_variables, quantile_num, output_path):
 
@@ -47,32 +151,8 @@ def plot3_sub(quantile_aucs, title, outpath):
     plt.show()
     plt.savefig(f'{outpath}/figure.png')
 
-def fig4(res_dict, indices, test):
 
-    xs =list()
-    ys=list()
-    labels=list()
-
-    for key, val in indices.keys():
-        
-        preds = res_dict[key][0].predict_proba(test.iloc[:,val])
-        xs_, ys_ = tests.roc_curves_models(preds, test.iloc[:,-1].to_numpy)
-        xs.append(xs_)
-        ys.apend(ys_)
-        labels.append(f'{key}: {res_dict[key][1]}')
-
-    for i in range(len(xs)):
-
-        plt.plot(xs[i],ys[i],label=labels[i])
-
-    plt.xlabel('FPR')
-    plt.ylabel('TPR')
-    plt.title('ROC Curves by Feature Subset')
-    plt.legend()
-    plt.show()
-
-
-def fig1(dir, matches_dir):
+def fig1(dir, matches_dir, outpath):
     """
     This directory will have n csvs that state overall metric performance on full sample
 
@@ -82,16 +162,17 @@ def fig1(dir, matches_dir):
     for i in os.listdir(dir):
 
         window = i.split('_')[0]
-        res=pd.read_csv(f'{dir}/{i}', header=None)
-        res.sort_values(by=2, inplace=True, ascending=False)
+        res=pd.read_csv(f'{dir}/{i}').iloc[:,1:]
+        res.columns = ['Metric', 'AUC', 'Vec Settings']
+        res.sort_values(by='AUC', inplace=True, ascending=False)
 
         print(f'Top Metrics for {i} by AUC')
         print(res.iloc[:10])
         print('\n')
 
         #get the parameters for top scoring metric
-        name=res.iloc[0][1]
-        noise, cent, cent_type, power = res.iloc[0][3].split('_')
+        name=res.iloc[0]['Metric']
+        noise, cent, cent_type, power = res.iloc[0]['Vec Settings'].split('_')
         noise=float(noise)
         cent=float(cent)
 
@@ -99,6 +180,9 @@ def fig1(dir, matches_dir):
             power=float(power)
         except:
             pass
+
+        if power=='None':
+            power=None
 
         matches = pd.read_pickle(f'{matches_dir}/matches_{window}_ppm.pkl')
 
@@ -123,20 +207,32 @@ def fig1(dir, matches_dir):
         top_res=top_res.iloc[:,-2:]
         
         orig_res=pd.concat((orig_res.iloc[:,:-1],top_res), axis=1)
+        orig_res['match'] = orig_res['match'].astype(int)
 
         #execute function to get plot data
-        names, xs, ys = tests.roc_curves_select_metrics(orig_res)
+        names, xs, ys = tests.roc_curves_select_metrics(orig_res, [-5,-4,-3,-2])
 
-        for i in range(len(names)):
-            orig_res.sort_values(by=names[i], inplace=True)
-            auc_score = auc(orig_res[names[i]].to_numpy(),orig_res['match'].to_numpy())
-            plt.plot(xs[i], ys[i], label=f'{metrics[i]}: {round(auc_score,2)}')
+        
+        vec_settings = ['0.01_0.05_da_None' for _ in range(3)]
+        vec_settings.append(f'{noise}_{cent}_{cent_type}_{power}')
+
+        auc_scores=list()
+        for ind in range(len(names)):
+
+            # orig_res.sort_values(by=names[ind], inplace=True)
+            # auc_score = auc(orig_res['match'].to_numpy(),orig_res[names[ind]].to_numpy())
+            auc_score = res[(res['Metric']==metrics[ind]) & (res['Vec Settings']==vec_settings[ind])].iloc[0]['AUC']
+            auc_scores.append(auc_score)
+            plt.plot(xs[ind], ys[ind], label=f'{metrics[ind]}: {round(auc_score,2)}')
 
         plt.xlabel('FPR')
         plt.ylabel('TPR')
         plt.title(f'ROC Curves for Selected Metrics: {i}')
         plt.legend()
         plt.show()
+
+        with open(f'{outpath}/plot_info.pkl', 'wb') as handle:
+            pickle.dump((names,auc_scores, xs, ys),handle)
 
 
 
@@ -164,7 +260,7 @@ def fig2(dir, ppm_windows):
                 #read in metric scores, sort by AUROC
                 mets = pd.read_csv(f'{dir}/{j}/{i}_ppm.csv', header=None)
                 mets.sort_values(by=2, ascending=False, inplace=True)
-                print(mets.head())
+             
                 #grab the first value of each metric, disregarding cleaning params
                 mets_=mets.iloc[np.unique(mets[1], return_index=True)[1]]
                 vecs= mets.iloc[np.unique(mets[3], return_index=True)[1]]

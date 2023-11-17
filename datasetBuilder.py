@@ -1738,7 +1738,7 @@ def create_model_dataset(
     noise_threshes=[0.01],
     centroid_tolerance_vals=[0.05],
     centroid_tolerance_types=["da"],
-    powers=[None],
+    powers=['orig'],
 ):
     """ """
     # create helper vars

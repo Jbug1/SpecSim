@@ -37,10 +37,10 @@ def roc_curves_models(preds, trues):
 
         ys_[j]=1- (running_pos/tot_true) #1- FNR
         xs_[j]=1- (running_neg/tot_false) #1-TNR
-        
+
     return (xs_, ys_)
 
-def roc_curves_select_metrics(df):
+def roc_curves_select_metrics(df, inds):
 
     "plot ROC curves for all metrics given"
 
@@ -49,7 +49,7 @@ def roc_curves_select_metrics(df):
 
     tot_true = np.sum(df['match'])
     tot_false = len(df)-tot_true
-    for i in [-5,-4,-3,-2]:
+    for i in inds:
 
         df.sort_values(by=df.columns[i], inplace=True)
 
@@ -73,7 +73,7 @@ def roc_curves_select_metrics(df):
         ys.append(ys_)
         xs.append(xs_)
 
-    return (np.array(df.columns[[-5,-4,-3,-2]]), xs, ys)
+    return (np.array(df.columns[inds]), xs, ys)
 
 
 def break_data_into_quantiles(input, col_names, quantile_num, output_path):

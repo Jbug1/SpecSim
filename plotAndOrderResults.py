@@ -62,8 +62,11 @@ def fig4b(test_data, inds, outpath, ppm_window, top_n):
     auc_scores=list()
     for ind in range(len(inds)):
 
-        test_data.sort_values(by=names[ind], inplace=True)
-        auc_score = auc(test_data['match'].to_numpy(),test_data[names[ind]].to_numpy())
+        test_data.sort_values(by=test_data.columns[ind], inplace=True)
+        labels = test_data['match'].to_numpy()
+        labels=labels.astype(int)
+
+        auc_score = auc(labels,test_data[test_data.columns[ind]].to_numpy())
         auc_scores.append(auc_score)
 
     #sort all inputs by score
@@ -161,6 +164,9 @@ def fig1(dir, matches_dir, outpath):
 
     for i in os.listdir(dir):
 
+        if i.split('.')[-1]!='csv':
+            continue
+
         window = i.split('_')[0]
         res=pd.read_csv(f'{dir}/{i}').iloc[:,1:]
         res.columns = ['Metric', 'AUC', 'Vec Settings']
@@ -213,7 +219,7 @@ def fig1(dir, matches_dir, outpath):
         names, xs, ys = tests.roc_curves_select_metrics(orig_res, [-5,-4,-3,-2])
 
         
-        vec_settings = ['0.01_0.05_da_None' for _ in range(3)]
+        vec_settings = ['0.01_0.05_da_orig' for _ in range(3)]
         vec_settings.append(f'{noise}_{cent}_{cent_type}_{power}')
 
         auc_scores=list()

@@ -947,15 +947,12 @@ def get_spec_change_features(dirty, clean):
 
 def get_spec_features(spec_query, precursor_query, spec_target, precursor_target):
 
-    if len(spec_query) == 0:
-        spec_query = np.array([[1, 0]])
-
-    if len(spec_target) == 0:
-        spec_target = np.array([[1, 0]])
+    #if we have invalid spectra, return all -1s...shouldn't happen
+    if len(spec_query) == 0 or len(spec_target) == 0:
+        return list(np.zeros(8)-1)
 
     outrow = np.zeros(8)
     # first get all peaks below precursor mz
-
 
     below_prec_indices = np.where(
         spec_query[:, 0] < (precursor_query - tools.ppm(precursor_query, 3))

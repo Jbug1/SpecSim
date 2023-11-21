@@ -60,18 +60,22 @@ def fig4b(test_data, inds, outpath, ppm_window, top_n):
     """
 
     auc_scores=list()
-    for ind in range(len(inds)):
+    for ind in inds:
 
         test_data.sort_values(by=test_data.columns[ind], inplace=True)
         labels = test_data['match'].to_numpy()
         labels=labels.astype(int)
 
-        auc_score = auc(labels,test_data[test_data.columns[ind]].to_numpy())
+        auc_score = auc(labels,test_data.iloc[:,ind].to_numpy())
         auc_scores.append(auc_score)
 
     #sort all inputs by score
-    sorted_scores = np.argsort(auc_score)
+    auc_scores=np.array(auc_scores)
+    inds=np.array(inds)
+    
+    sorted_scores = np.argsort(auc_scores)
     auc_scores = auc_scores[sorted_scores][:top_n]
+    
     inds = inds[sorted_scores][:top_n]
 
     names, xs, ys = tests.roc_curves_select_metrics(test_data, inds)

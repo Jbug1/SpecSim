@@ -1019,21 +1019,21 @@ def add_non_spec_features(query_row, target_row):
     outrow[3] = float(target_row["collision_energy"])
 
     # combined features
-    outrow[4] = int(target_row["instrument"] == query_row["instrument"])
+    outrow[4] = float(target_row["instrument"] == query_row["instrument"])
 
     if (
-        int(target_row["collision_energy"]) > 0
-        and int(query_row["collision_energy"]) > 0
+        float(target_row["collision_energy"]) > 0
+        and float(query_row["collision_energy"]) > 0
     ):
         outrow[5] = max(
-            int(target_row["collision_energy"]) / int(query_row["collision_energy"]),
-            int(query_row["collision_energy"]) / int(target_row["collision_energy"]),
+            float(target_row["collision_energy"]) / float(query_row["collision_energy"]),
+            float(query_row["collision_energy"]) / float(target_row["collision_energy"]),
         )
     else:
         outrow[5] = 0
 
     outrow[6] = abs(
-        int(target_row["collision_energy"]) - int(query_row["collision_energy"])
+        float(target_row["collision_energy"]) - float(query_row["collision_energy"])
     )
 
     # precursor features

@@ -72,8 +72,8 @@ def fig4b(test_data, inds, outpath, ppm_window, top_n):
     #sort all inputs by score
     auc_scores=np.array(auc_scores)
     inds=np.array(inds)
-    
-    sorted_scores = np.argsort(auc_scores)
+
+    sorted_scores = np.argsort(auc_scores)[::-1]
     auc_scores = auc_scores[sorted_scores][:top_n]
     
     inds = inds[sorted_scores][:top_n]

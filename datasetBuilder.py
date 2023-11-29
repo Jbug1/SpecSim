@@ -101,7 +101,7 @@ def get_target_df_with_noise(
     return target_df
 
 
-def get_spec_features(spec_query, precursor_query, spec_target, precursor_target):
+def get_spec_features(spec_query, precursor_query, spec_target, precursor_target, prec_remove=True):
 
     #if we have invalid spectra, return all -1s...shouldn't happen
     if len(spec_query) == 0 or len(spec_target) == 0:
@@ -118,7 +118,8 @@ def get_spec_features(spec_query, precursor_query, spec_target, precursor_target
         spec_query[:, 1]
     )
 
-    spec_query = spec_query[below_prec_indices]
+    if prec_remove:
+        spec_query = spec_query[below_prec_indices]
 
     n_peaks = len(spec_query)
     ent = scipy.stats.entropy(spec_query[:, 1])
@@ -488,6 +489,7 @@ def create_model_dataset(
     centroid_tolerance_vals=[0.05],
     centroid_tolerance_types=["da"],
     powers=['orig'],
+    prec_removes=[True]
 ):
     """ """
     # create helper vars
@@ -504,119 +506,122 @@ def create_model_dataset(
     ]
 
     # create initial value spec columns
-    init_spec_df = matches_df.apply(
-        lambda x: get_spec_features(
-            x["query"], x["precquery"], x["target"], x["prectarget"]
-        ),
-        axis=1,
-        result_type="expand",
-    )
+    #
+    for remove in prec_removes:
+        
+        init_spec_df = matches_df.apply(
+            lambda x: get_spec_features(
+                x["query"], x["precquery"], x["target"], x["prectarget"],remove
+            ),
+            axis=1,
+            result_type="expand",
+        )
 
-    init_spec_df.columns = spec_columns
+        init_spec_df.columns = spec_columns
 
-    ticker = 0
-    for i in noise_threshes:
-        for j in powers:
-            for k in range(len(centroid_tolerance_vals)):
+        ticker = 0
+        for i in noise_threshes:
+            for j in powers:
+                for k in range(len(centroid_tolerance_vals)):
 
-                ticker += 1
-                if ticker % 10 == 0:
-                    print(f"added {ticker} settings")
+                    ticker += 1
+                    if ticker % 10 == 0:
+                        print(f"added {ticker} settings")
 
-                spec_columns_ = [
-                    f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
-                    for x in spec_columns
-                ]
+                    spec_columns_ = [
+                        f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}_{remove}"
+                        for x in spec_columns
+                    ]
 
 
-                sim_columns_ = [
-                    f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
-                    for x in sim_methods
-                ]
+                    sim_columns_ = [
+                        f"{x}_{i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}_{remove}"
+                        for x in sim_methods
+                    ]
 
-                # clean specs and get corresponding spec features
-                cleaned_df = matches_df.apply(
-                    lambda x: clean_and_spec_features(
-                        x["query"],
-                        x["precquery"],
-                        x["target"],
-                        x["prectarget"],
-                        noise_thresh=i,
-                        centroid_thresh=centroid_tolerance_vals[k],
-                        power=j,
-                    ),
-                    axis=1,
-                    result_type="expand",
-                )
+                    # clean specs and get corresponding spec features
+                    cleaned_df = matches_df.apply(
+                        lambda x: clean_and_spec_features(
+                            x["query"],
+                            x["precquery"],
+                            x["target"],
+                            x["prectarget"],
+                            noise_thresh=i,
+                            centroid_thresh=centroid_tolerance_vals[k],
+                            power=j,
+                        ),
+                        axis=1,
+                        result_type="expand",
+                    )
 
-                cleaned_df.columns = (
-                    spec_columns_  + ["query", "target"]
-                )
+                    cleaned_df.columns = (
+                        spec_columns_  + ["query", "target"]
+                    )
 
-                for x in range(len(cleaned_df)):
+                    for x in range(len(cleaned_df)):
 
-                    if (
-                        np.isnan(cleaned_df.iloc[x]["query"]).any()
-                        or np.isnan(cleaned_df.iloc[x]["target"]).any()
-                    ):
+                        if (
+                            np.isnan(cleaned_df.iloc[x]["query"]).any()
+                            or np.isnan(cleaned_df.iloc[x]["target"]).any()
+                        ):
 
-                        print(
-                            f"nans at row {x} under param setting {i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
+                            print(
+                                f"nans at row {x} under param setting {i}_{j}_{centroid_tolerance_vals[k]}{centroid_tolerance_types[k]}"
+                            )
+
+                    # create columns of similarity scores
+                    if centroid_tolerance_types[k] == "ppm":
+                        sim_df = cleaned_df.apply(
+                            lambda x: get_sim_features(
+                                x["query"],
+                                x["target"],
+                                sim_methods,
+                                ms2_ppm=centroid_tolerance_vals[k],
+                            ),
+                            axis=1,
+                            result_type="expand",
                         )
 
-                # create columns of similarity scores
-                if centroid_tolerance_types[k] == "ppm":
-                    sim_df = cleaned_df.apply(
-                        lambda x: get_sim_features(
-                            x["query"],
-                            x["target"],
-                            sim_methods,
-                            ms2_ppm=centroid_tolerance_vals[k],
-                        ),
-                        axis=1,
-                        result_type="expand",
-                    )
+                        sim_df.columns = sim_columns_
 
-                    sim_df.columns = sim_columns_
+                    else:
 
-                else:
+                        sim_df = cleaned_df.apply(
+                            lambda x: get_sim_features(
+                                x["query"],
+                                x["target"],
+                                sim_methods,
+                                ms2_da=centroid_tolerance_vals[k],
+                            ),
+                            axis=1,
+                            result_type="expand",
+                        )
 
-                    sim_df = cleaned_df.apply(
-                        lambda x: get_sim_features(
-                            x["query"],
-                            x["target"],
-                            sim_methods,
-                            ms2_da=centroid_tolerance_vals[k],
-                        ),
-                        axis=1,
-                        result_type="expand",
-                    )
+                        sim_df.columns = sim_columns_
 
-                    sim_df.columns = sim_columns_
+                    # add everything to the output df
+                    if out_df is None:
 
-                # add everything to the output df
-                if out_df is None:
+                        out_df = pd.concat(
+                            (
+                                matches_df.iloc[:, :-3],
+                                init_spec_df,
+                                cleaned_df.iloc[:, :-2],
+                                sim_df,
+                            ),
+                            axis=1,
+                        )
 
-                    out_df = pd.concat(
-                        (
-                            matches_df.iloc[:, :-3],
-                            init_spec_df,
-                            cleaned_df.iloc[:, :-2],
-                            sim_df,
-                        ),
-                        axis=1,
-                    )
+                    else:
 
-                else:
-
-                    out_df = pd.concat(
-                        (
-                            out_df,
-                            cleaned_df.iloc[:, :-2],
-                            sim_df,
-                        ),
-                        axis=1,
-                    )
+                        out_df = pd.concat(
+                            (
+                                out_df,
+                                cleaned_df.iloc[:, :-2],
+                                sim_df,
+                            ),
+                            axis=1,
+                        )
 
     out_df["match"] = matches_df["match"]
     return out_df

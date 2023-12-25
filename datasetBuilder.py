@@ -626,7 +626,7 @@ def create_model_dataset(
     out_df["match"] = matches_df["match"]
     return out_df
 
-def generate_keep_indices(noise_threshes, centroid_tolerance_vals, powers, spec_features, sim_methods, any_=False, nonspecs=False, init_spec=False):
+def generate_keep_indices(noise_threshes, centroid_tolerance_vals, powers, spec_features, sim_methods, prec_keeps =[True],any_=False, nonspecs=False, init_spec=False):
 
     if nonspecs:
         keep_indices= list(range(9))
@@ -637,28 +637,29 @@ def generate_keep_indices(noise_threshes, centroid_tolerance_vals, powers, spec_
         keep_indices+=list(range(9,17))
 
     ind=17
-    for i in noise_threshes:
-        for j in centroid_tolerance_vals:
-            for k in powers:
-                
-                for l in spec_features:
-                    if any_:
-                        if True in [i,j,k,l]:
-                            keep_indices.append(ind)
-                    else:
-                        if i==j==k==l==True:
-                            keep_indices.append(ind)
-                    ind+=1
-
-                for l in sim_methods:
+    for _ in prec_keeps:
+        for i in noise_threshes:
+            for j in centroid_tolerance_vals:
+                for k in powers:
                     
-                    if any_:
-                        if True in [i,j,k,l]:
-                            keep_indices.append(ind)
-                    else:
-                        if i==j==k==l==True:
-                            keep_indices.append(ind)
-                    ind+=1
+                    for l in spec_features:
+                        if any_:
+                            if True in [i,j,k,l,_]:
+                                keep_indices.append(ind)
+                        else:
+                            if i==j==k==l==_==True:
+                                keep_indices.append(ind)
+                        ind+=1
+
+                    for l in sim_methods:
+                        
+                        if any_:
+                            if True in [i,j,k,l,_]:
+                                keep_indices.append(ind)
+                        else:
+                            if i==j==k==l==_==True:
+                                keep_indices.append(ind)
+                        ind+=1
 
     return keep_indices
 

@@ -1,6 +1,7 @@
 
 import numpy as np
 import pandas as pd
+import tools
 
 
 # putting extra functions here for now to clean things up
@@ -686,6 +687,261 @@ def convert_msp_to_df_5(filepath):
         print(f'{key}: {len(val)}')
 
     return pd.DataFrame(outdict)
+
+def convert_msp_to_df_7(filepath):
+    """
+    nist23
+    """
+
+    with open(filepath) as f:
+        lines = f.readlines()
+
+    names = list()
+    precursortype = list()
+    num_peaks = list()
+    precursors = list()
+    inchis = list()
+    inchis_firsts = list()
+    isv = list()
+    collision_gas = list()
+    collision_energy = list()
+    instrument = list()
+    instrument_type=list()
+    specs = list()
+    mslvls=list()
+
+    spec = list()
+    inchi = np.nan
+    collision_gas_ = ""
+    collision_energy_ = -1
+    isv_ = -1
+    instrument_ = ""
+    instrument_type_=''
+    name=""
+    prectype=np.nan
+    inchi=""
+    precmz=np.nan
+    n_peak=""
+    mslvl=""
+
+    tot_rows = 0
+    for i in lines:
+
+        #splitty = i.split(":")
+        if "ID=" in i:
+
+            if len(spec)>0:
+
+                specs.append(np.array(spec))
+                n_peak=len(spec)
+                spec = list()
+
+                inchis.append(inchi)
+
+                if type(inchi)==str:
+                    inchis_firsts.append(inchi.split("-")[0])
+                else:
+                    inchis_firsts.append(np.nan)
+                inchi = np.nan
+
+                collision_gas.append(collision_gas_)
+                collision_gas_ = ""
+
+                collision_energy.append(collision_energy_)
+                collision_energy_ = -1
+
+                isv.append(isv_)
+                isv_ = -1
+
+                instrument.append(instrument_)
+                instrument_ = ""
+
+                instrument_type.append(instrument_type_)
+                instrument_type_ = ""
+
+                num_peaks.append(n_peak)
+                n_peak=""
+
+                names.append(name)
+                name=""
+
+                precursors.append(precmz)
+                precmz=np.nan
+
+                precursortype.append(prectype)
+                prectype=np.nan
+
+                mslvls.append(mslvl)
+                mslvl=""
+
+                tot_rows += 1
+            
+            continue
+        else:
+            label = i.split('=')
+
+        if label[0]=='INSTRUMENT':
+            instrument_ = label[1].strip()
+
+        elif label[0]=='INSTRUMENT_TYPE':
+           instrument_type_ = label[1].strip()
+
+        elif label[0]=='COLLISION_ENERGY':
+            try:
+                collision_energy_ = int(label[-1].split()[-1][:-2])
+            except:
+                print(label[-1].split()[-1][:-2])
+
+
+        elif label[0]=='PRECURSOR_TYPE':
+           prectype = label[1].strip()
+
+        elif label[0]=='PRECURSOR_MZ':
+            try:
+                precmz = float(label[1].strip())
+            except:
+                pass
+
+        elif label[0]=='INCHIKEY':
+           inchi = label[1].strip()
+
+        elif tools.is_digit(i.split()[0]) and len(i.split())==2:
+            spec.append([float(i.split()[0]), float(i.split()[1])])
+
+    outdict = {
+        "name": names,
+        "precursor_type": precursortype,
+        "n_peaks": num_peaks,
+        "precursor": precursors,
+        "inchi": inchis,
+        "inchi_base": inchis_firsts,
+        "instrument": instrument_type,
+        "collision_energy": collision_energy,
+        "spectrum": specs,
+    }
+
+    for key, val in outdict.items():
+        print(f'{key}: {len(val)}')
+
+    return pd.DataFrame(outdict)
+
+
+def convert_msp_to_df_6(filepath):
+    """
+    nist23
+    """
+
+    with open(filepath) as f:
+        lines = f.readlines()
+
+    names = list()
+    precursortype = list()
+    num_peaks = list()
+    precursors = list()
+    inchis = list()
+    inchis_firsts = list()
+    isv = list()
+    collision_gas = list()
+    collision_energy = list()
+    instrument = list()
+    specs = list()
+    mslvls=list()
+
+    spec = list()
+    inchi = np.nan
+    collision_gas_ = ""
+    collision_energy_ = -1
+    isv_ = -1
+    instrument_ = ""
+    name=""
+    prectype=np.nan
+    inchi=""
+    precmz=np.nan
+    n_peak=""
+    mslvl=""
+
+    tot_rows = 0
+    for i in lines:
+
+        #splitty = i.split(":")
+        if "ID=" in i:
+
+            if len(spec)>0:
+
+                specs.append(np.array(spec))
+                n_peak=len(spec)
+                spec = list()
+
+                inchis.append(inchi)
+
+                if type(inchi)==str:
+                    inchis_firsts.append(inchi.split("-")[0])
+                else:
+                    inchis_firsts.append(np.nan)
+                inchi = np.nan
+
+                collision_gas.append(collision_gas_)
+                collision_gas_ = ""
+
+                collision_energy.append(collision_energy_)
+                collision_energy_ = -1
+
+                isv.append(isv_)
+                isv_ = -1
+
+                instrument.append(instrument_)
+                instrument_ = ""
+
+                num_peaks.append(n_peak)
+                n_peak=""
+
+                names.append(name)
+                name=""
+
+                precursors.append(precmz)
+                precmz=np.nan
+
+                precursortype.append(prectype)
+                prectype=np.nan
+
+                mslvls.append(mslvl)
+                mslvl=""
+
+                tot_rows += 1
+            
+            continue
+
+        if '[' in i:
+            prectype = i.strip()
+
+        elif tools.is_digit(i) and len(i.split())==1:
+                precmz  = float(i)
+
+        elif not tools.is_digit(i) and len(i.split())==1:
+            inchi = i.strip()
+
+        elif tools.is_digit(i.split()[0]) and len(i.split())==2:
+            spec.append([float(i.split()[0]), float(i.split()[1])])
+
+    outdict = {
+        "name": names,
+        "precursor_type": precursortype,
+        "n_peaks": num_peaks,
+        "precursor": precursors,
+        "inchi": inchis,
+        "inchi_base": inchis_firsts,
+        "isv": isv,
+        "instrument": instrument,
+        "collision_gas": collision_gas,
+        "collision_energy": collision_energy,
+        "spectrum": specs,
+    }
+
+    for key, val in outdict.items():
+        print(f'{key}: {len(val)}')
+
+    return pd.DataFrame(outdict)
+
 
 def convert_msp_to_df_3(filepath):
     """

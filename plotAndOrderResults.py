@@ -177,7 +177,7 @@ def fig1(dir, matches_dir, outpath):
         res.sort_values(by='AUC', inplace=True, ascending=False)
 
         print(f'Top Metrics for {i} by AUC')
-        print(res.iloc[:10])
+        print(res.iloc[:20])
         print('\n')
 
         #get the parameters for top scoring metric

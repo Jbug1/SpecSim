@@ -414,7 +414,6 @@ def clean_and_spec_features_single(
     spec_features = get_spec_features_single(spec1_, prec1)
     if verbose:
         print(spec_features)
-        print(yools)
 
     spec1_ = tools.standardize_spectrum(spec1_)
 

@@ -163,34 +163,36 @@ def best_models_by_subset(cols, train_sizes, models, train, val, test):
 
     return res_dict
 
-def create_variable_comparisons(noise_threshes, centroid_threshes, centroid_types, powers, sim_methods, matches, outpath):
+def create_variable_comparisons(noise_threshes, centroid_threshes, centroid_types, powers, sim_methods, prec_removes, matches, outpath):
 
     for j in noise_threshes:
         for k in range(len(centroid_threshes)):
             for l in powers:
+                for m in prec_removes:
 
-                cleaned = matches.apply(lambda x: datasetBuilder.clean_and_spec_features(x['query'],
-                                                                                            x['precquery'],
-                                                                                            x['target'],
-                                                                                            x['prectarget'],
-                                                                                            noise_thresh=j,
-                                                                                            centroid_thresh = centroid_threshes[k],
-                                                                                            centroid_type=centroid_types[k],
-                                                                                            power=l
-                                                                                            ), 
-                                                                                            axis=1,
-                                                                                            result_type='expand')
-                
-                
-                cleaned=pd.DataFrame(cleaned)
-                cleaned = cleaned.iloc[:,-2:]
-                cleaned.columns = ['query','library']
-                                                                            
-                aucs = run_metrics_models_auc(sim_methods,[],cleaned, tol_thresh = centroid_threshes[k], tol_type=centroid_types[k])
-                aucs = auc_to_df(aucs, list(matches.iloc[:,-1]))
-                aucs['clean_specs'] =  f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}'
+                    cleaned = matches.apply(lambda x: datasetBuilder.clean_and_spec_features(x['query'],
+                                                                                                x['precquery'],
+                                                                                                x['target'],
+                                                                                                x['prectarget'],
+                                                                                                noise_thresh=j,
+                                                                                                centroid_thresh = centroid_threshes[k],
+                                                                                                centroid_type=centroid_types[k],
+                                                                                                power=l,
+                                                                                                prec_remove=m
+                                                                                                ), 
+                                                                                                axis=1,
+                                                                                                result_type='expand')
+                    
+                    
+                    cleaned=pd.DataFrame(cleaned)
+                    cleaned = cleaned.iloc[:,-2:]
+                    cleaned.columns = ['query','library']
+                                                                                
+                    aucs = run_metrics_models_auc(sim_methods,[],cleaned, tol_thresh = centroid_threshes[k], tol_type=centroid_types[k])
+                    aucs = auc_to_df(aucs, list(matches.iloc[:,-1]))
+                    aucs['clean_specs'] =  f'{j}_{centroid_threshes[k]}_{centroid_types[k]}_{l}'
 
-                aucs.to_csv(outpath, mode='a', header=False)
+                    aucs.to_csv(outpath, mode='a', header=False)
 
 
 def run_metrics_models_auc(metrics, models, test, tol_thresh, tol_type):

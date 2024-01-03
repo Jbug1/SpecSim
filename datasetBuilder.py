@@ -191,6 +191,7 @@ def clean_and_spec_features(
     centroid_thresh,
     centroid_type="ppm",
     power=1,
+    prec_remove=True
 ):
     """
     Function to clean the query and target specs according to parameters passed. Returns only matched spec
@@ -198,23 +199,48 @@ def clean_and_spec_features(
 
     if centroid_type == "ppm":
 
-        spec1_ = tools.clean_spectrum(
-            spec1,
-            noise_removal=noise_thresh,
-            ms2_ppm=centroid_thresh,
-            standardize=False,
-            max_mz=prec1,
-        )
-        spec2_ = tools.clean_spectrum(
-            spec2,
-            noise_removal=noise_thresh,
-            ms2_ppm=centroid_thresh,
-            standardize=False,
-            max_mz=prec2,
-        )
+        if prec_remove:
+
+            spec1_ = tools.clean_spectrum(
+                spec1,
+                noise_removal=noise_thresh,
+                ms2_ppm=centroid_thresh,
+                standardize=False,
+                max_mz=prec1,
+            )
+            spec2_ = tools.clean_spectrum(
+                spec2,
+                noise_removal=noise_thresh,
+                ms2_ppm=centroid_thresh,
+                standardize=False,
+                max_mz=prec2,
+            )
+        else:
+            spec1_ = tools.clean_spectrum(
+                spec1,
+                noise_removal=noise_thresh,
+                ms2_ppm=centroid_thresh,
+                standardize=False,
+                max_mz=None,
+            )
+            spec2_ = tools.clean_spectrum(
+                spec2,
+                noise_removal=noise_thresh,
+                ms2_ppm=centroid_thresh,
+                standardize=False,
+                max_mz=None,
+            )
 
     else:
-        spec1_ = tools.clean_spectrum(
+        if prec_remove:
+            spec1_ = tools.clean_spectrum(
+                spec1, noise_removal=noise_thresh, ms2_da=centroid_thresh, standardize=False, max_mz=prec1
+            )
+            spec2_ = tools.clean_spectrum(
+                spec2, noise_removal=noise_thresh, ms2_da=centroid_thresh, standardize=False, max_mz=prec2
+            )
+        else:
+            spec1_ = tools.clean_spectrum(
             spec1, noise_removal=noise_thresh, ms2_da=centroid_thresh, standardize=False
         )
         spec2_ = tools.clean_spectrum(

@@ -49,9 +49,10 @@ def fig4(test_data, res_dict, inds_dict, outpath, ppm_window):
     plt.ylabel('TPR')
     plt.title(f'ROC Test Curves By Feature Subset for {ppm_window} ppm')
     plt.legend()
+    plt.savefig(f'{outpath}/{ppm_window}_ppm.png')
     plt.show()
 
-    plt.savefig(f'{outpath}/{ppm_window}_ppm.png')
+    
 
 
 def fig4b(test_data, inds, outpath, ppm_window, top_n):
@@ -87,6 +88,7 @@ def fig4b(test_data, inds, outpath, ppm_window, top_n):
     plt.ylabel('TPR')
     plt.title(f'ROC Curves for Selected Metrics: {ppm_window} ppm')
     plt.legend()
+    plt.savefig(f'{outpath}/{ppm_window}_ppm.png')
     plt.show()
 
     with open(f'{outpath}/plot_info.pkl', 'wb') as handle:
@@ -154,9 +156,9 @@ def plot3_sub(quantile_aucs, title, outpath):
     plt.xlabel('Quantile')
     plt.ylabel('AUC')
     plt.legend()
-
-    plt.show()
     plt.savefig(f'{outpath}/figure.png')
+    plt.show()
+    
 
 
 def fig1(dir, matches_dir, outpath):
@@ -240,6 +242,7 @@ def fig1(dir, matches_dir, outpath):
         plt.ylabel('TPR')
         plt.title(f'ROC Curves for Selected Metrics: {i}')
         plt.legend()
+        plt.savefig(f'{dir}/fig1.png')
         plt.show()
 
         with open(f'{outpath}/plot_info.pkl', 'wb') as handle:

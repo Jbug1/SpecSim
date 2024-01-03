@@ -217,28 +217,13 @@ def run_metrics_models_auc(metrics, models, test, tol_thresh, tol_type):
             metrics.append('max_'+i)
             # metrics.append('min_'+i)
             # metrics.append('ave_'+i)
-            metrics.append('reverse_dot_product')
+        metrics.append('reverse_dot_product')
+        metrics.remove('max_jensenshannon')
 
         if tol_type == 'da':
             sims = test.apply(lambda x: spectral_similarity.multiple_similarity(x['query'],x['library'],methods =metrics, ms2_da = tol_thresh), axis=1)
         else:
             sims = test.apply(lambda x: spectral_similarity.multiple_similarity(x['query'],x['library'],methods =metrics, ms2_ppm = tol_thresh), axis=1)
-        
-        try:
-            #sims = [x[i] for x in sims]
-            pass
-            #aucs[i]=auc(test.iloc[:,-1:],sims)
-        except:
-            print(f'error on {i}')
-            # print(sims)
-            
-            # for i in range(len(sims)):
-            #     if np.isnan(sims[i]):
-            #         print(sims[i])
-            #         print(test.iloc[i]['query'])
-            #         print(test.iloc[i]['library'])
-                    
-            # print('tayslkdf')
 
     for i in models:
 
@@ -575,6 +560,7 @@ def auc_to_df(aucs, trues):
             outdict['metric'].append(metric)
         except:
             print(f'error on {metric}')
+            print(trues)
             
 
     return pd.DataFrame(outdict)

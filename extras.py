@@ -825,6 +825,43 @@ def convert_msp_to_df_7(filepath):
 
     return pd.DataFrame(outdict)
 
+def get_target_df_with_noise(
+    target_path,
+    noise_peaks=True,
+    alter_existing_peaks=True,
+    std=0,
+    lam=0.0,
+    num_peaks=None,
+):
+
+    # get whole dataframe from msp files
+    target_df = convert_msp_to_df_2(target_path)
+
+    # get adduct subsets
+    target_df = get_adduct_subset(target_df)
+
+    # subset to only where we have real inchis
+    target_df = target_df[target_df["inchi"] != ""]
+
+    target_df["precursor"] = pd.to_numeric(target_df["precursor"])
+
+    target_df.reset_index(inplace=True)
+
+    if alter_existing_peaks == True:
+        target_df.apply(
+            lambda x: add_gauss_noise_to_peaks(x["spectrum"], std=std), axis=1
+        )
+
+    if noise_peaks == True:
+        target_df.apply(
+            lambda x: add_beta_noise_to_spectrum(
+                x["spectrum"], x["precursor"], num_peaks, lam
+            ),
+            axis=1,
+        )
+
+    return target_df
+
 
 def convert_msp_to_df_6(filepath):
     """

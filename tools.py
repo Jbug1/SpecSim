@@ -12,11 +12,14 @@ def is_digit(s):
     try:
         float(s)
         return True
-    except ValueError:
+    except:
         return False
 
 
 def ppm(base, ppm):
+    """
+    convert ppm threshold to dalton based on precursor exact mass (base)
+    """
 
     return base * (ppm / 1e6)
 

@@ -196,11 +196,12 @@ def fig1(dir, matches_dir, outpath):
 
         matches = pd.read_pickle(f'{matches_dir}/matches_{window}_ppm.pkl')
 
-        metrics = ['cosine','entropy','reverse_dot_product']+[name]
+
+        metrics = ['dot_product','entropy','reverse_dot_product']+[name]
 
         #get the curves for the 'traditional metrics'
         orig_res = datasetBuilder.create_model_dataset(matches,
-                                                    sim_methods = ['cosine','entropy','reverse_dot_product'],
+                                                    sim_methods = ['dot_product','entropy','reverse_dot_product'],
                                                     )
         #only maintain similarity columns and match
         orig_res = orig_res.iloc[:,16:]
